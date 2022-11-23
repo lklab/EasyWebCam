@@ -360,8 +360,9 @@ public class WebCamController : MonoBehaviour
     /// </summary>
     /// <param name="rotationAngle">Angle to rotate the photo</param>
     /// <param name="flipHorizontally">Horizontally flip the photo</param>
+    /// <param name="clip">Whether to clip only the part visible in the viewport</param>
     /// <returns>Taken photo. Must Destroy() when no longer use it.</returns>
-    public Texture2D Capture(float rotationAngle, bool flipHorizontally)
+    public Texture2D Capture(float rotationAngle, bool flipHorizontally, bool clip)
     {
         if (!IsPlaying)
             return null;
@@ -372,22 +373,45 @@ public class WebCamController : MonoBehaviour
         else if (rotationStep < 0)
             rotationStep += -((rotationStep + 1) / 4 - 1) * 4;
 
+        int textureWidth = Texture.width;
+        int textureHeight = Texture.height;
         int width = 0;
         int height = 0;
+        int widthOffset = 0;
+        int heightOffset = 0;
 
         switch (rotationStep)
         {
             case 0:
             case 2:
-                width = Texture.width;
-                height = Texture.height;
+                width = textureWidth;
+                height = textureHeight;
                 break;
 
             case 1:
             case 3:
-                width = Texture.height;
-                height = Texture.width;
+                width = textureHeight;
+                height = textureWidth;
                 break;
+        }
+
+        if (clip)
+        {
+            float viewportAspect = _viewport.rect.width / _viewport.rect.height;
+            float textureAspect = (float)width / height;
+
+            if (viewportAspect > textureAspect)
+            {
+                int newHeight = (int)((float)width / viewportAspect);
+                heightOffset = (height - newHeight) / 2;
+                height = newHeight;
+            }
+            else
+            {
+                int newWidth = (int)((float)height * viewportAspect);
+                widthOffset = (width - newWidth) / 2;
+                width = newWidth;
+            }
         }
 
         Texture2D captureTexture = new Texture2D(width, height);
@@ -398,33 +422,43 @@ public class WebCamController : MonoBehaviour
             switch (rotationStep)
             {
                 case 0:
-                    captureTexture.SetPixels(webCamPixels);
+                    if (clip)
+                    {
+                        for (int j = 0; j < height; j++)
+                        {
+                            int ybase = (j + heightOffset) * textureWidth;
+                            for (int i = 0; i < width; i++)
+                                captureTexture.SetPixel(i, j, webCamPixels[(i + widthOffset) + ybase]);
+                        }
+                    }
+                    else
+                        captureTexture.SetPixels(webCamPixels);
                     break;
 
                 case 1:
                     for (int j = 0; j < height; j++)
                     {
-                        int x = height - 1 - j;
+                        int x = textureWidth - 1 - (j + heightOffset);
                         for (int i = 0; i < width; i++)
-                            captureTexture.SetPixel(i, j, webCamPixels[x + i * height]);
+                            captureTexture.SetPixel(i, j, webCamPixels[x + (i + widthOffset) * textureWidth]);
                     }
                     break;
 
                 case 2:
                     for (int i = 0; i < width; i++)
                     {
-                        int x = width - 1 - i;
+                        int x = textureWidth - 1 - (i + widthOffset);
                         for (int j = 0; j < height; j++)
-                            captureTexture.SetPixel(i, j, webCamPixels[x + (height - 1 - j) * width]);
+                            captureTexture.SetPixel(i, j, webCamPixels[x + (textureHeight - 1 - (j + heightOffset)) * textureWidth]);
                     }
                     break;
 
                 case 3:
                     for (int i = 0; i < width; i++)
                     {
-                        int y = width - 1 - i;
+                        int y = textureHeight - 1 - (i + widthOffset);
                         for (int j = 0; j < height; j++)
-                            captureTexture.SetPixel(i, j, webCamPixels[j + y * height]);
+                            captureTexture.SetPixel(i, j, webCamPixels[(j + heightOffset) + y * textureWidth]);
                     }
                     break;
             }
@@ -436,35 +470,36 @@ public class WebCamController : MonoBehaviour
                 case 0:
                     for (int i = 0; i < width; i++)
                     {
-                        int x = width - 1 - i;
+                        int x = textureWidth - 1 - (i + widthOffset);
                         for (int j = 0; j < height; j++)
-                            captureTexture.SetPixel(i, j, webCamPixels[x + j * width]);
+                            captureTexture.SetPixel(i, j, webCamPixels[x + (j + heightOffset) * textureWidth]);
                     }
                     break;
 
                 case 1:
                     for (int i = 0; i < width; i++)
                     {
-                        int y = width - 1 - i;
+                        int y = textureHeight - 1 - (i + widthOffset);
                         for (int j = 0; j < height; j++)
-                            captureTexture.SetPixel(i, j, webCamPixels[(height - 1 - j) + y * height]);
+                            captureTexture.SetPixel(i, j, webCamPixels[(textureWidth - 1 - (j + heightOffset)) + y * textureWidth]);
                     }
                     break;
 
                 case 2:
                     for (int j = 0; j < height; j++)
                     {
-                        int y = height - 1 - j;
+                        int y = textureHeight - 1 - (j + heightOffset);
                         for (int i = 0; i < width; i++)
-                            captureTexture.SetPixel(i, j, webCamPixels[i + y * width]);
+                            captureTexture.SetPixel(i, j, webCamPixels[(i + widthOffset) + y * textureWidth]);
                     }
                     break;
 
                 case 3:
                     for (int i = 0; i < width; i++)
                     {
+                        int ybase = (i + widthOffset) * textureWidth;
                         for (int j = 0; j < height; j++)
-                            captureTexture.SetPixel(i, j, webCamPixels[j + i * height]);
+                            captureTexture.SetPixel(i, j, webCamPixels[(j + heightOffset) + ybase]);
                     }
                     break;
             }
@@ -480,7 +515,7 @@ public class WebCamController : MonoBehaviour
     /// <returns>Taken photo. Must Destroy() when no longer use it.</returns>
     public Texture2D Capture()
     {
-        return Capture(mWebCamProperties.videoRotationAngle, FlipHorizontally);
+        return Capture(mWebCamProperties.videoRotationAngle, FlipHorizontally, true);
     }
 
     private IEnumerator AcquireWebCamPermission(Action<Error> callback)
