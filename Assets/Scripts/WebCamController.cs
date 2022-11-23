@@ -358,11 +358,10 @@ public class WebCamController : MonoBehaviour
     /// <summary>
     /// Taking a photo
     /// </summary>
-    /// <param name="flipVertically">Vertically flip the photo</param>
     /// <param name="rotationAngle">Angle to rotate the photo</param>
     /// <param name="flipHorizontally">Horizontally flip the photo</param>
     /// <returns>Taken photo. Must Destroy() when no longer use it.</returns>
-    public Texture2D Capture(bool flipVertically, float rotationAngle, bool flipHorizontally)
+    public Texture2D Capture(float rotationAngle, bool flipHorizontally)
     {
         if (!IsPlaying)
             return null;
@@ -372,20 +371,6 @@ public class WebCamController : MonoBehaviour
             rotationStep = rotationStep % 4;
         else if (rotationStep < 0)
             rotationStep += -((rotationStep + 1) / 4 - 1) * 4;
-
-        if (flipVertically)
-        {
-            flipHorizontally = !flipHorizontally;
-            flipVertically = false;
-
-            switch (rotationStep)
-            {
-                case 0: rotationStep = 2; break;
-                case 1: rotationStep = 1; break;
-                case 2: rotationStep = 0; break;
-                case 3: rotationStep = 3; break;
-            }
-        }
 
         int width = 0;
         int height = 0;
@@ -495,7 +480,7 @@ public class WebCamController : MonoBehaviour
     /// <returns>Taken photo. Must Destroy() when no longer use it.</returns>
     public Texture2D Capture()
     {
-        return Capture(mWebCamProperties.videoVerticallyMirrored, mWebCamProperties.videoRotationAngle, FlipHorizontally);
+        return Capture(mWebCamProperties.videoRotationAngle, FlipHorizontally);
     }
 
     private IEnumerator AcquireWebCamPermission(Action<Error> callback)
