@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using UnityEngine;
+using UnityEngine.Android;
 using UnityEngine.UI;
 
 #if !UNITY_EDITOR
@@ -23,22 +24,42 @@ public class WebCamController : MonoBehaviour
     [SerializeField] private int _webCamFPS = 60;
     [SerializeField] private bool _useFrontFacing = true;
 
-    [Header("Display settings")]
-    [SerializeField] private bool _flipHorizontally = true;
+    /// <summary>
+    /// Whether it has been initialized
+    /// </summary>
+    public bool IsInitialized { get; private set; } = false;
 
     /// <summary>
-    /// Is WebCam supported
+    /// Whether camera permission is allowed
     /// </summary>
-    public bool IsSupported { get { return mSupported; } }
+    public bool IsPermitted { get; private set; } = false;
 
     /// <summary>
     /// Is WebCam playing
     /// </summary>
-    public bool IsPlaying { get { return mIsPlaying; } }
+    public bool IsPlaying { get; private set; } = false;
 
-    private WebCamTexture mWebCamTexture;
-    private bool mSupported = false;
-    private bool mIsPlaying = false;
+    /// <summary>
+    /// WebCam resolution
+    /// </summary>
+    public Vector2Int Resolution { get { return _webCamResolution; } }
+
+    /// <summary>
+    /// WebCam FPS
+    /// </summary>
+    public int FPS { get { return _webCamFPS; } }
+
+    /// <summary>
+    /// Is WebCam front facing
+    /// </summary>
+    public bool IsFrontFacing { get { return _useFrontFacing; } }
+
+    /// <summary>
+    /// Horizontally flip the WebCam
+    /// </summary>
+    public bool FlipHorizontally { get; private set; }
+
+    public WebCamTexture Texture { get; private set; } = null;
 
     private Coroutine mAcquireWebCamPermissionCoroutine = null;
 
@@ -55,19 +76,18 @@ public class WebCamController : MonoBehaviour
 
     private void Awake()
     {
-        /* disable raw image */
-        _rawImage.gameObject.SetActive(false);
+        Initialize();
     }
 
     private void Update()
     {
-        if (mIsPlaying)
+        if (IsPlaying)
         {
             /* check webcam and orientation */
-            if (mWebCamProperties.videoRotationAngle != mWebCamTexture.videoRotationAngle ||
-                mWebCamProperties.width != mWebCamTexture.width ||
-                mWebCamProperties.height != mWebCamTexture.height ||
-                mWebCamProperties.videoVerticallyMirrored != mWebCamTexture.videoVerticallyMirrored ||
+            if (mWebCamProperties.videoRotationAngle != Texture.videoRotationAngle ||
+                mWebCamProperties.width != Texture.width ||
+                mWebCamProperties.height != Texture.height ||
+                mWebCamProperties.videoVerticallyMirrored != Texture.videoVerticallyMirrored ||
                 mCurrentOrientation != Screen.orientation)
             {
                 Resizing();
@@ -81,12 +101,28 @@ public class WebCamController : MonoBehaviour
     }
 
     /// <summary>
-    /// Check and reset device's WebCam permission
+    /// Initialize WebCamController
     /// </summary>
-    /// <param name="callback">Callback to receive initialization result</param>
-    public void Initialize(Action<Error> callback)
+    public void Initialize()
     {
-        if (mSupported)
+        if (IsInitialized)
+            return;
+        IsInitialized = true;
+
+        /* check permission */
+        IsPermitted = CheckPermission();
+
+        /* disable raw image */
+        _rawImage.gameObject.SetActive(false);
+    }
+
+    /// <summary>
+    /// Request WebCam permission
+    /// </summary>
+    /// <param name="callback">Callback to receive permission result</param>
+    public void RequestPermission(Action<Error> callback)
+    {
+        if (IsPermitted)
         {
             callback?.Invoke(Error.Success);
             return;
@@ -94,56 +130,172 @@ public class WebCamController : MonoBehaviour
 
         if (mAcquireWebCamPermissionCoroutine != null)
         {
-            Debug.LogWarning("WebCamController: Already initializing.");
             callback?.Invoke(Error.Busy);
             return;
         }
 
         if (!isActiveAndEnabled)
         {
-            Debug.LogError("WebCamController: GameObject is disabled.");
             callback?.Invoke(Error.Disabled);
             return;
         }
 
         mAcquireWebCamPermissionCoroutine = StartCoroutine(AcquireWebCamPermission(error =>
         {
-            if (error == Error.Success)
-                error = InitializeWebCamTexture();
-
-            switch (error)
-            {
-                case Error.NotSupported:
-                    Debug.LogError("WebCamController: WebCam is not supported.");
-                    break;
-
-                case Error.Permission:
-                    Debug.LogError("WebCamController: Failed to get WebCam permission.");
-                    break;
-            }
-
             mAcquireWebCamPermissionCoroutine = null;
+
+            IsPermitted = error == Error.Success;
             callback?.Invoke(error);
         }));
     }
 
     /// <summary>
+    /// Stop requesting for WebCam permission
+    /// </summary>
+    public void StopRequestPermission()
+    {
+        if (mAcquireWebCamPermissionCoroutine != null)
+        {
+            StopCoroutine(mAcquireWebCamPermissionCoroutine);
+            mAcquireWebCamPermissionCoroutine = null;
+        }    
+    }
+
+    /// <summary>
     /// Start WebCam
     /// </summary>
-    public void StartWebCam()
+    /// <returns>
+    /// Error.Success when WebCam started successfully,
+    /// Error.Busy when WebCam has already started,
+    /// Error.NotSupported when no WebCam.
+    /// </returns>
+    public Error StartWebCam()
     {
-        if (!mSupported || mIsPlaying)
-            return;
+        if (IsPlaying)
+            return Error.Busy;
 
-        mWebCamTexture.Play();
+        return StartWebCam(_useFrontFacing, _webCamResolution, _webCamFPS);
+    }
+
+    /// <summary>
+    /// Start WebCam
+    /// </summary>
+    /// <param name="useFrontFacing">Whether to choose the front facing WebCam</param>
+    /// <param name="resolution">WebCam resolution</param>
+    /// <param name="fps">WebCam FPS</param>
+    /// <returns>
+    /// Error.Success when WebCam started successfully,
+    /// Error.Busy when WebCam has already started,
+    /// Error.NotSupported when no WebCam.
+    /// </returns>
+    public Error StartWebCam(bool useFrontFacing, Vector2Int resolution, int fps)
+    {
+        if (IsPlaying)
+            return Error.Busy;
+
+        return StartWebCam(useFrontFacing, resolution, fps, useFrontFacing);
+    }
+
+    /// <summary>
+    /// Start WebCam
+    /// </summary>
+    /// <param name="useFrontFacing">Whether to choose the front facing WebCam</param>
+    /// <param name="resolution">WebCam resolution</param>
+    /// <param name="fps">WebCam FPS</param>
+    /// <param name="flipHorizontally">Horizontally flip the WebCam</param>
+    /// <returns>
+    /// Error.Success when WebCam started successfully,
+    /// Error.Busy when WebCam has already started,
+    /// Error.NotSupported when no WebCam.
+    /// </returns>
+    public Error StartWebCam(bool useFrontFacing, Vector2Int resolution, int fps, bool flipHorizontally)
+    {
+        if (IsPlaying)
+            return Error.Busy;
+
+        WebCamDevice[] devices = WebCamTexture.devices;
+        if (devices == null)
+            return Error.NotSupported;
+
+        WebCamDevice device = default;
+        bool found = false;
+
+        for (int i = 0; i < devices.Length; i++)
+        {
+            if (useFrontFacing == devices[i].isFrontFacing)
+            {
+                device = devices[i];
+                found = true;
+                break;
+            }
+        }
+
+        if (!found)
+            return Error.NotSupported;
+
+        return StartWebCam(device, resolution, fps, flipHorizontally);
+    }
+
+    /// <summary>
+    /// Start WebCam
+    /// </summary>
+    /// <param name="deviceIndex">Index of WebCamTexture.devices</param>
+    /// <param name="resolution">WebCam resolution</param>
+    /// <param name="fps">WebCam FPS</param>
+    /// <param name="flipHorizontally">Horizontally flip the WebCam</param>
+    /// <returns>
+    /// Error.Success when WebCam started successfully,
+    /// Error.Busy when WebCam has already started,
+    /// Error.NotSupported when no WebCam.
+    /// </returns>
+    public Error StartWebCam(int deviceIndex, Vector2Int resolution, int fps, bool flipHorizontally)
+    {
+        if (IsPlaying)
+            return Error.Busy;
+
+        WebCamDevice[] devices = WebCamTexture.devices;
+
+        if (devices == null || deviceIndex < 0 || deviceIndex >= devices.Length)
+            return Error.NotSupported;
+
+        return StartWebCam(devices[deviceIndex], resolution, fps, flipHorizontally);
+    }
+
+    /// <summary>
+    /// Start WebCam
+    /// </summary>
+    /// <param name="device">WebCam device</param>
+    /// <param name="resolution">WebCam resolution</param>
+    /// <param name="fps">WebCam FPS</param>
+    /// <param name="flipHorizontally">Horizontally flip the WebCam</param>
+    /// <returns>
+    /// Error.Success when WebCam started successfully,
+    /// Error.Busy when WebCam has already started,
+    /// Error.NotSupported when no WebCam.
+    /// </returns>
+    public Error StartWebCam(WebCamDevice device, Vector2Int resolution, int fps, bool flipHorizontally)
+    {
+        if (IsPlaying)
+            return Error.Busy;
+
+        Texture = new WebCamTexture(device.name, resolution.x, resolution.y, fps);
+        _rawImage.texture = Texture;
+
+        Texture.Play();
         _rawImage.gameObject.SetActive(true);
 
-        if (_flipHorizontally)
+        if (flipHorizontally)
             _viewport.localScale = new Vector3(-1.0f, 1.0f, 1.0f);
         else
             _viewport.localScale = Vector3.one;
 
-        mIsPlaying = true;
+        _webCamResolution = resolution;
+        _webCamFPS = fps;
+        _useFrontFacing = device.isFrontFacing;
+        FlipHorizontally = flipHorizontally;
+        IsPlaying = true;
+
+        return Error.Success;
     }
 
     /// <summary>
@@ -151,51 +303,56 @@ public class WebCamController : MonoBehaviour
     /// </summary>
     public void StopWebCam()
     {
-        if (!mIsPlaying)
+        if (!IsPlaying)
             return;
 
-        mWebCamTexture.Stop();
+        Texture.Stop();
+        Texture = null;
         _rawImage.gameObject.SetActive(false);
 
-        mIsPlaying = false;
+        IsPlaying = false;
     }
 
+    /// <summary>
+    /// Resize UI
+    /// </summary>
     public void Resizing()
     {
-        if (!mIsPlaying)
+        if (!IsPlaying)
             return;
 
         /* setup params */
-        float rotationAngle = mWebCamTexture.videoRotationAngle;
+        float rotationAngle = Texture.videoRotationAngle;
         int rotationStep = Mathf.RoundToInt(rotationAngle / 90.0f);
+        bool isOrthogonal = (rotationStep % 2) != 0;
         float scale = 1.0f;
-        float aspectRatio = (float)mWebCamTexture.width / mWebCamTexture.height;
+        float aspectRatio = (float)Texture.width / Texture.height;
 
         /* rotation */
         float angle = rotationStep * 90.0f;
-        _rawImage.transform.rotation = Quaternion.Euler(0.0f, 0.0f, angle);
+        _rawImage.transform.localRotation = Quaternion.Euler(0.0f, 0.0f, -angle);
 
         /* size */
         _aspectRatioFitter.aspectRatio = aspectRatio;
 
         /* scale */
-        if ((rotationStep % 2) != 0)
+        if (isOrthogonal)
         {
             float viewportRatio = _viewport.rect.width / _viewport.rect.height;
             scale = Mathf.Max(1.0f / aspectRatio, viewportRatio);
         }
 
         /* flip */
-        if (mWebCamTexture.videoVerticallyMirrored)
+        if (Texture.videoVerticallyMirrored)
             _rawImage.transform.localScale = new Vector3(scale, -scale, scale);
         else
             _rawImage.transform.localScale = new Vector3(scale, scale, scale);
 
         /* save webcam properties */
-        mWebCamProperties.videoRotationAngle = mWebCamTexture.videoRotationAngle;
-        mWebCamProperties.width = mWebCamTexture.width;
-        mWebCamProperties.height = mWebCamTexture.height;
-        mWebCamProperties.videoVerticallyMirrored = mWebCamTexture.videoVerticallyMirrored;
+        mWebCamProperties.videoRotationAngle = Texture.videoRotationAngle;
+        mWebCamProperties.width = Texture.width;
+        mWebCamProperties.height = Texture.height;
+        mWebCamProperties.videoVerticallyMirrored = Texture.videoVerticallyMirrored;
         mCurrentOrientation = Screen.orientation;
     }
 
@@ -208,7 +365,7 @@ public class WebCamController : MonoBehaviour
     /// <returns>Taken photo. Must Destroy() when no longer use it.</returns>
     public Texture2D Capture(bool flipVertically, float rotationAngle, bool flipHorizontally)
     {
-        if (!mIsPlaying)
+        if (!IsPlaying)
             return null;
 
         int rotationStep = Mathf.RoundToInt(rotationAngle / 90.0f);
@@ -238,19 +395,19 @@ public class WebCamController : MonoBehaviour
         {
             case 0:
             case 2:
-                width = mWebCamTexture.width;
-                height = mWebCamTexture.height;
+                width = Texture.width;
+                height = Texture.height;
                 break;
 
             case 1:
             case 3:
-                width = mWebCamTexture.height;
-                height = mWebCamTexture.width;
+                width = Texture.height;
+                height = Texture.width;
                 break;
         }
 
         Texture2D captureTexture = new Texture2D(width, height);
-        Color[] webCamPixels = mWebCamTexture.GetPixels();
+        Color[] webCamPixels = Texture.GetPixels();
 
         if (!flipHorizontally)
         {
@@ -339,39 +496,7 @@ public class WebCamController : MonoBehaviour
     /// <returns>Taken photo. Must Destroy() when no longer use it.</returns>
     public Texture2D Capture()
     {
-        return Capture(mWebCamProperties.videoVerticallyMirrored, mWebCamProperties.videoRotationAngle, _flipHorizontally);
-    }
-
-    private Error InitializeWebCamTexture()
-    {
-        WebCamDevice[] devices = WebCamTexture.devices;
-        WebCamDevice device = default;
-        mSupported = false;
-        mIsPlaying = false;
-
-        if (devices != null)
-        {
-            for (int i = 0; i < devices.Length; i++)
-            {
-                if (_useFrontFacing == devices[i].isFrontFacing)
-                {
-                    device = devices[i];
-                    mSupported = true;
-                    break;
-                }
-            }
-        }
-
-        if (mSupported)
-        {
-            mWebCamTexture = new WebCamTexture(device.name, _webCamResolution.x, _webCamResolution.y, _webCamFPS);
-            _rawImage.texture = mWebCamTexture;
-            _rawImage.gameObject.SetActive(false);
-
-            return Error.Success;
-        }
-        else
-            return Error.NotSupported;
+        return Capture(mWebCamProperties.videoVerticallyMirrored, mWebCamProperties.videoRotationAngle, FlipHorizontally);
     }
 
     private IEnumerator AcquireWebCamPermission(Action<Error> callback)
@@ -407,6 +532,19 @@ public class WebCamController : MonoBehaviour
 #else
         callback?.Invoke(Error.Success);
         yield break;
+#endif
+    }
+
+    private bool CheckPermission()
+    {
+#if !UNITY_EDITOR
+#if UNITY_ANDROID
+        return Permission.HasUserAuthorizedPermission(Permission.Camera);
+#elif UNITY_IOS
+        return Application.HasUserAuthorization(UserAuthorization.WebCam);
+#endif
+#else
+        return true;
 #endif
     }
 }
