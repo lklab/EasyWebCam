@@ -1,7 +1,6 @@
 using System;
 using System.Collections;
 using UnityEngine;
-using UnityEngine.Android;
 using UnityEngine.UI;
 
 #if !UNITY_EDITOR
