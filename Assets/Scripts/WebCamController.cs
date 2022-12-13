@@ -170,6 +170,9 @@ public class WebCamController : MonoBehaviour
     /// </returns>
     public Error StartWebCam()
     {
+        if (!IsPermitted)
+            return Error.Permission;
+
         if (IsPlaying)
             return Error.Busy;
 
@@ -189,6 +192,9 @@ public class WebCamController : MonoBehaviour
     /// </returns>
     public Error StartWebCam(bool useFrontFacing, Vector2Int resolution, int fps)
     {
+        if (!IsPermitted)
+            return Error.Permission;
+
         if (IsPlaying)
             return Error.Busy;
 
@@ -209,6 +215,9 @@ public class WebCamController : MonoBehaviour
     /// </returns>
     public Error StartWebCam(bool useFrontFacing, Vector2Int resolution, int fps, bool flipHorizontally)
     {
+        if (!IsPermitted)
+            return Error.Permission;
+
         if (IsPlaying)
             return Error.Busy;
 
@@ -249,6 +258,9 @@ public class WebCamController : MonoBehaviour
     /// </returns>
     public Error StartWebCam(int deviceIndex, Vector2Int resolution, int fps, bool flipHorizontally)
     {
+        if (!IsPermitted)
+            return Error.Permission;
+
         if (IsPlaying)
             return Error.Busy;
 
@@ -274,6 +286,9 @@ public class WebCamController : MonoBehaviour
     /// </returns>
     public Error StartWebCam(WebCamDevice device, Vector2Int resolution, int fps, bool flipHorizontally)
     {
+        if (!IsPermitted)
+            return Error.Permission;
+
         if (IsPlaying)
             return Error.Busy;
 

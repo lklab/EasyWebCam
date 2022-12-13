@@ -31,6 +31,9 @@ public class Sample : MonoBehaviour
             }
 
             Texture2D texture = _webCamController.Capture();
+            if (texture == null)
+                return;
+
             mCapturedImage = Sprite.Create(
                 texture,
                 new Rect(0.0f, 0.0f, texture.width, texture.height),
