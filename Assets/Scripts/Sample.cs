@@ -66,4 +66,14 @@ public class Sample : MonoBehaviour
                 _webCamController.StartWebCam();
         });
     }
+
+    private void OnDestroy()
+    {
+        if (mCapturedImage != null)
+        {
+            Destroy(mCapturedImage.texture);
+            Destroy(mCapturedImage);
+            mCapturedImage = null;
+        }
+    }
 }
