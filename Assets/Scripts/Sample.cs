@@ -32,20 +32,22 @@ public class Sample : MonoBehaviour
                 Destroy(mCapturedImage);
             }
 
-            Texture2D texture = _webCamController.Capture();
-            if (texture == null)
-                return;
+            _webCamController.CaptureAsync((Texture2D texture) =>
+            {
+                if (texture == null)
+                    return;
 
-            mCapturedImage = Sprite.Create(
-                texture,
-                new Rect(0.0f, 0.0f, texture.width, texture.height),
-                new Vector2(0.5f, 0.5f),
-                100.0f);
+                mCapturedImage = Sprite.Create(
+                    texture,
+                    new Rect(0.0f, 0.0f, texture.width, texture.height),
+                    new Vector2(0.5f, 0.5f),
+                    100.0f);
 
-            _captureImage.sprite = mCapturedImage;
-            _captureAspect.aspectRatio = (float)texture.width / texture.height;
+                _captureImage.sprite = mCapturedImage;
+                _captureAspect.aspectRatio = (float)texture.width / texture.height;
 
-            _captureUiObject.SetActive(true);
+                _captureUiObject.SetActive(true);
+            });
         });
 
         _changeButton.onClick.AddListener(delegate

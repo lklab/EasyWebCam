@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Threading;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -23,6 +24,9 @@ namespace LKWebCam
         [SerializeField] private int _webCamFPS = 60;
         [SerializeField] private bool _useFrontFacing = true;
         [SerializeField] private bool _autoResizeViewport = true;
+
+        [Header("Capture settings")]
+        [SerializeField] private int _captureThreadCount = 4;
 
         /// <summary>
         /// Whether it has been initialized
@@ -325,146 +329,8 @@ namespace LKWebCam
             if (!IsPlaying)
                 return null;
 
-            int rotationStep = Mathf.RoundToInt(rotationAngle / 90.0f);
-            if (rotationStep >= 4)
-                rotationStep = rotationStep % 4;
-            else if (rotationStep < 0)
-                rotationStep += -((rotationStep + 1) / 4 - 1) * 4;
-
-            int textureWidth = Texture.width;
-            int textureHeight = Texture.height;
-            int width = 0;
-            int height = 0;
-            int widthOffset = 0;
-            int heightOffset = 0;
-
-            switch (rotationStep)
-            {
-                case 0:
-                case 2:
-                    width = textureWidth;
-                    height = textureHeight;
-                    break;
-
-                case 1:
-                case 3:
-                    width = textureHeight;
-                    height = textureWidth;
-                    break;
-            }
-
-            if (clip)
-            {
-                float viewportAspect = _viewport.RectTr.rect.width / _viewport.RectTr.rect.height;
-                float textureAspect = (float)width / height;
-
-                if (viewportAspect > textureAspect)
-                {
-                    int newHeight = (int)((float)width / viewportAspect);
-                    heightOffset = (height - newHeight) / 2;
-                    height = newHeight;
-                }
-                else
-                {
-                    int newWidth = (int)((float)height * viewportAspect);
-                    widthOffset = (width - newWidth) / 2;
-                    width = newWidth;
-                }
-            }
-
-            Texture2D captureTexture = new Texture2D(width, height);
-            Color[] webCamPixels = Texture.GetPixels();
-
-            if (!flipHorizontally)
-            {
-                switch (rotationStep)
-                {
-                    case 0:
-                        if (clip)
-                        {
-                            for (int j = 0; j < height; j++)
-                            {
-                                int ybase = (j + heightOffset) * textureWidth;
-                                for (int i = 0; i < width; i++)
-                                    captureTexture.SetPixel(i, j, webCamPixels[(i + widthOffset) + ybase]);
-                            }
-                        }
-                        else
-                            captureTexture.SetPixels(webCamPixels);
-                        break;
-
-                    case 1:
-                        for (int j = 0; j < height; j++)
-                        {
-                            int x = textureWidth - 1 - (j + heightOffset);
-                            for (int i = 0; i < width; i++)
-                                captureTexture.SetPixel(i, j, webCamPixels[x + (i + widthOffset) * textureWidth]);
-                        }
-                        break;
-
-                    case 2:
-                        for (int i = 0; i < width; i++)
-                        {
-                            int x = textureWidth - 1 - (i + widthOffset);
-                            for (int j = 0; j < height; j++)
-                                captureTexture.SetPixel(i, j, webCamPixels[x + (textureHeight - 1 - (j + heightOffset)) * textureWidth]);
-                        }
-                        break;
-
-                    case 3:
-                        for (int i = 0; i < width; i++)
-                        {
-                            int y = textureHeight - 1 - (i + widthOffset);
-                            for (int j = 0; j < height; j++)
-                                captureTexture.SetPixel(i, j, webCamPixels[(j + heightOffset) + y * textureWidth]);
-                        }
-                        break;
-                }
-            }
-            else
-            {
-                switch (rotationStep)
-                {
-                    case 0:
-                        for (int i = 0; i < width; i++)
-                        {
-                            int x = textureWidth - 1 - (i + widthOffset);
-                            for (int j = 0; j < height; j++)
-                                captureTexture.SetPixel(i, j, webCamPixels[x + (j + heightOffset) * textureWidth]);
-                        }
-                        break;
-
-                    case 1:
-                        for (int i = 0; i < width; i++)
-                        {
-                            int y = textureHeight - 1 - (i + widthOffset);
-                            for (int j = 0; j < height; j++)
-                                captureTexture.SetPixel(i, j, webCamPixels[(textureWidth - 1 - (j + heightOffset)) + y * textureWidth]);
-                        }
-                        break;
-
-                    case 2:
-                        for (int j = 0; j < height; j++)
-                        {
-                            int y = textureHeight - 1 - (j + heightOffset);
-                            for (int i = 0; i < width; i++)
-                                captureTexture.SetPixel(i, j, webCamPixels[(i + widthOffset) + y * textureWidth]);
-                        }
-                        break;
-
-                    case 3:
-                        for (int i = 0; i < width; i++)
-                        {
-                            int ybase = (i + widthOffset) * textureWidth;
-                            for (int j = 0; j < height; j++)
-                                captureTexture.SetPixel(i, j, webCamPixels[(j + heightOffset) + ybase]);
-                        }
-                        break;
-                }
-            }
-
-            captureTexture.Apply();
-            return captureTexture;
+            WebCamCaptureWorker worker = GetCaptureWorker(rotationAngle, flipHorizontally, clip);
+            return worker.Run();
         }
 
         /// <summary>
@@ -473,7 +339,46 @@ namespace LKWebCam
         /// <returns>Taken photo. Must Destroy() when no longer use it.</returns>
         public Texture2D Capture()
         {
-            return Capture(_viewport.WebCamProperties.videoRotationAngle, FlipHorizontally, true);
+            if (!IsPlaying)
+                return null;
+
+            WebCamCaptureWorker worker = GetCaptureWorker(_viewport.WebCamProperties.videoRotationAngle, FlipHorizontally, true);
+            return worker.Run();
+        }
+
+        /// <summary>
+        /// Taking a photo (async)
+        /// </summary>
+        /// <param name="rotationAngle">Angle to rotate the photo</param>
+        /// <param name="flipHorizontally">Horizontally flip the photo</param>
+        /// <param name="clip">Whether to clip only the part visible in the viewport</param>
+        /// <param name="callback">Callback to get a photo. Must Destroy() when no longer use the photo.</param>
+        public void CaptureAsync(float rotationAngle, bool flipHorizontally, bool clip, System.Action<Texture2D> callback)
+        {
+            if (!IsPlaying)
+            {
+                callback?.Invoke(null);
+                return;
+            }
+
+            WebCamCaptureWorker worker = GetCaptureWorker(rotationAngle, flipHorizontally, clip);
+            StartCoroutine(WaitCaptureCoroutine(worker.RunAsync(), callback));
+        }
+
+        /// <summary>
+        /// Taking a photo (async)
+        /// </summary>
+        /// <param name="callback">Callback to get a photo. Must Destroy() when no longer use the photo.</param>
+        public void CaptureAsync(System.Action<Texture2D> callback)
+        {
+            if (!IsPlaying)
+            {
+                callback?.Invoke(null);
+                return;
+            }
+
+            WebCamCaptureWorker worker = GetCaptureWorker(_viewport.WebCamProperties.videoRotationAngle, FlipHorizontally, true);
+            StartCoroutine(WaitCaptureCoroutine(worker.RunAsync(), callback));
         }
 
         private IEnumerator AcquireWebCamPermission(Action<Error> callback)
@@ -523,6 +428,30 @@ namespace LKWebCam
 #else
             return true;
 #endif
+        }
+
+        private WebCamCaptureWorker GetCaptureWorker(float rotationAngle, bool flipHorizontally, bool clip)
+        {
+            return new WebCamCaptureWorker(
+                texture: Texture,
+                rotationAngle: rotationAngle,
+                flipHorizontally: flipHorizontally,
+                clip: clip,
+                viewportAspect: _viewport.RectTr.rect.width / _viewport.RectTr.rect.height,
+                threadCount: _captureThreadCount);
+        }
+
+        private IEnumerator WaitCaptureCoroutine(System.Func<Texture2D> waitFunc, System.Action<Texture2D> callback)
+        {
+            Texture2D texture = null;
+
+            while (texture == null)
+            {
+                yield return null;
+                texture = waitFunc();
+            }
+
+            callback?.Invoke(texture);
         }
     }
 }
