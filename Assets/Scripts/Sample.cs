@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
+using LKWebCam;
+
 public class Sample : MonoBehaviour
 {
     [Header("WebCam UI")]

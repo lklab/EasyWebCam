@@ -50,12 +50,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2ef6bcde8cee64360a9167b2f57e7a45, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _viewport: {fileID: 3957856480394243455}
-  _rawImage: {fileID: 3957856480417533947}
-  _aspectRatioFitter: {fileID: 3957856480417533946}
+  _viewport: {fileID: 8041530539001900297}
   _webCamResolution: {x: 1280, y: 720}
   _webCamFPS: 60
   _useFrontFacing: 1
+  _viewportAutoResizing: 1
 --- !u!1 &3957856480394243454
 GameObject:
   m_ObjectHideFlags: 0
@@ -68,6 +67,7 @@ GameObject:
   - component: {fileID: 3957856480394243442}
   - component: {fileID: 3957856480394243453}
   - component: {fileID: 3957856480394243452}
+  - component: {fileID: 8041530539001900297}
   m_Layer: 5
   m_Name: Viewport
   m_TagString: Untagged
@@ -147,6 +147,21 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_ShowMaskGraphic: 0
+--- !u!114 &8041530539001900297
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3957856480394243454}
+  m_Enabled: 0
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8a08d57f3d6af499fba558578c3680d1, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _viewport: {fileID: 3957856480394243455}
+  _rawImage: {fileID: 3957856480417533947}
+  _aspectRatioFitter: {fileID: 3957856480417533946}
 --- !u!1 &3957856480417533924
 GameObject:
   m_ObjectHideFlags: 0
