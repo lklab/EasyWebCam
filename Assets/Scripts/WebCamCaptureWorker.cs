@@ -17,11 +17,14 @@ namespace LKWebCam
         private float mViewportAspect;
         private int mThreadCount;
 
-        private Thread[] threads;
+        private Thread[] mThreads = null;
+        private Texture2D mOutputTexture = null;
+        private Vector2Int mOutputTextureSize;
 
+        /* thread contexts */
         private Color32[] mInputBuffer;
         private Color32[] mOutputBuffer;
-        private Texture2D mOutputTexture = null;
+        private int[] mSlice;
 
         public WebCamCaptureWorker(WebCamTexture texture, float rotationAngle, bool flipHorizontally,
             bool clip, float viewportAspect, int threadCount)
@@ -36,20 +39,27 @@ namespace LKWebCam
 
         public System.Func<Texture2D> RunAsync()
         {
-            mOutputTexture = null;
-            threads = RunInternal();
+            if (mOutputTexture != null)
+                return delegate { return mOutputTexture; };
+
+            if (mThreads == null)
+                mThreads = RunInternal();
 
             return delegate
             {
-                for (int i = 0; i < threads.Length; i++)
+                if (mOutputTexture != null)
+                    return mOutputTexture;
+
+                for (int i = 0; i < mThreads.Length; i++)
                 {
-                    if (threads[i].IsAlive)
+                    if (mThreads[i].IsAlive)
                         return null;
                 }
 
-                for (int i = 0; i < threads.Length; i++)
-                    threads[i].Join();
+                for (int i = 0; i < mThreads.Length; i++)
+                    mThreads[i].Join();
 
+                mOutputTexture = new Texture2D(mOutputTextureSize.x, mOutputTextureSize.y);
                 mOutputTexture.SetPixels32(mOutputBuffer);
                 mOutputTexture.Apply();
                 return mOutputTexture;
@@ -58,12 +68,18 @@ namespace LKWebCam
 
         public Texture2D Run()
         {
-            mOutputTexture = null;
-            threads = RunInternal();
+            if (mOutputTexture != null)
+                return mOutputTexture;
 
-            for (int i = 0; i < threads.Length; i++)
-                threads[i].Join();
+            if (mThreads != null)
+                return null; /* busy. This code will probably never run. */
 
+            mThreads = RunInternal();
+
+            for (int i = 0; i < mThreads.Length; i++)
+                mThreads[i].Join();
+
+            mOutputTexture = new Texture2D(mOutputTextureSize.x, mOutputTextureSize.y);
             mOutputTexture.SetPixels32(mOutputBuffer);
             mOutputTexture.Apply();
             return mOutputTexture;
@@ -119,24 +135,25 @@ namespace LKWebCam
 
             mInputBuffer = mInputTexture.GetPixels32();
             mOutputBuffer = new Color32[width * height];
-            mOutputTexture = new Texture2D(width, height);
+            mOutputTextureSize = new Vector2Int(width, height);
 
             Thread[] threads = new Thread[mThreadCount];
-            int[] starts;
-            int[] ends;
 
             if (!mFlipHorizontally)
             {
                 switch (rotationStep)
                 {
                     case 0:
-                        GetSlice(height, mThreadCount, out starts, out ends);
+                        mSlice = GetSlice(height, mThreadCount);
                         for (int th = 0; th < mThreadCount; th++)
                         {
                             int index = th;
                             threads[th] = new Thread(() =>
                             {
-                                for (int j = starts[index]; j < ends[index]; j++)
+                                int start = mSlice[index];
+                                int end = mSlice[index + 1];
+
+                                for (int j = start; j < end; j++)
                                 {
                                     int jb = j * width;
                                     int ybase = (j + heightOffset) * textureWidth;
@@ -148,13 +165,16 @@ namespace LKWebCam
                         break;
 
                     case 1:
-                        GetSlice(height, mThreadCount, out starts, out ends);
+                        mSlice = GetSlice(height, mThreadCount);
                         for (int th = 0; th < mThreadCount; th++)
                         {
                             int index = th;
                             threads[th] = new Thread(() =>
                             {
-                                for (int j = starts[index]; j < ends[index]; j++)
+                                int start = mSlice[index];
+                                int end = mSlice[index + 1];
+
+                                for (int j = start; j < end; j++)
                                 {
                                     int jb = j * width;
                                     int x = textureWidth - 1 - (j + heightOffset);
@@ -166,13 +186,16 @@ namespace LKWebCam
                         break;
 
                     case 2:
-                        GetSlice(width, mThreadCount, out starts, out ends);
+                        mSlice = GetSlice(width, mThreadCount);
                         for (int th = 0; th < mThreadCount; th++)
                         {
                             int index = th;
                             threads[th] = new Thread(() =>
                             {
-                                for (int i = starts[index]; i < ends[index]; i++)
+                                int start = mSlice[index];
+                                int end = mSlice[index + 1];
+
+                                for (int i = start; i < end; i++)
                                 {
                                     int x = textureWidth - 1 - (i + widthOffset);
                                     for (int j = 0; j < height; j++)
@@ -183,13 +206,16 @@ namespace LKWebCam
                         break;
 
                     case 3:
-                        GetSlice(width, mThreadCount, out starts, out ends);
+                        mSlice = GetSlice(width, mThreadCount);
                         for (int th = 0; th < mThreadCount; th++)
                         {
                             int index = th;
                             threads[th] = new Thread(() =>
                             {
-                                for (int i = starts[index]; i < ends[index]; i++)
+                                int start = mSlice[index];
+                                int end = mSlice[index + 1];
+
+                                for (int i = start; i < end; i++)
                                 {
                                     int y = textureHeight - 1 - (i + widthOffset);
                                     for (int j = 0; j < height; j++)
@@ -205,13 +231,16 @@ namespace LKWebCam
                 switch (rotationStep)
                 {
                     case 0:
-                        GetSlice(width, mThreadCount, out starts, out ends);
+                        mSlice = GetSlice(width, mThreadCount);
                         for (int th = 0; th < mThreadCount; th++)
                         {
                             int index = th;
                             threads[th] = new Thread(() =>
                             {
-                                for (int i = starts[index]; i < ends[index]; i++)
+                                int start = mSlice[index];
+                                int end = mSlice[index + 1];
+
+                                for (int i = start; i < end; i++)
                                 {
                                     int x = textureWidth - 1 - (i + widthOffset);
                                     for (int j = 0; j < height; j++)
@@ -222,13 +251,16 @@ namespace LKWebCam
                         break;
 
                     case 1:
-                        GetSlice(width, mThreadCount, out starts, out ends);
+                        mSlice = GetSlice(width, mThreadCount);
                         for (int th = 0; th < mThreadCount; th++)
                         {
                             int index = th;
                             threads[th] = new Thread(() =>
                             {
-                                for (int i = starts[index]; i < ends[index]; i++)
+                                int start = mSlice[index];
+                                int end = mSlice[index + 1];
+
+                                for (int i = start; i < end; i++)
                                 {
                                     int y = textureHeight - 1 - (i + widthOffset);
                                     for (int j = 0; j < height; j++)
@@ -239,13 +271,16 @@ namespace LKWebCam
                         break;
 
                     case 2:
-                        GetSlice(height, mThreadCount, out starts, out ends);
+                        mSlice = GetSlice(height, mThreadCount);
                         for (int th = 0; th < mThreadCount; th++)
                         {
                             int index = th;
                             threads[th] = new Thread(() =>
                             {
-                                for (int j = starts[index]; j < ends[index]; j++)
+                                int start = mSlice[index];
+                                int end = mSlice[index + 1];
+
+                                for (int j = start; j < end; j++)
                                 {
                                     int jb = j * width;
                                     int y = textureHeight - 1 - (j + heightOffset);
@@ -257,13 +292,16 @@ namespace LKWebCam
                         break;
 
                     case 3:
-                        GetSlice(width, mThreadCount, out starts, out ends);
+                        mSlice = GetSlice(width, mThreadCount);
                         for (int th = 0; th < mThreadCount; th++)
                         {
                             int index = th;
                             threads[th] = new Thread(() =>
                             {
-                                for (int i = starts[index]; i < ends[index]; i++)
+                                int start = mSlice[index];
+                                int end = mSlice[index + 1];
+
+                                for (int i = start; i < end; i++)
                                 {
                                     int ybase = (i + widthOffset) * textureWidth;
                                     for (int j = 0; j < height; j++)
@@ -281,19 +319,17 @@ namespace LKWebCam
             return threads;
         }
 
-        private void GetSlice(int length, int count, out int[] starts, out int[] ends)
+        private int[] GetSlice(int length, int count)
         {
-            starts = new int[count];
-            ends = new int[count];
-            int slice = length / count;
+            int[] slice = new int[count + 1];
+            int unit = length / count;
 
             for (int i = 0; i < count; i++)
-            {
-                starts[i] = slice * i;
-                ends[i] = slice * (i + 1);
-            }
+                slice[i] = unit * i;
 
-            ends[count - 1] = length;
+            slice[count] = length;
+
+            return slice;
         }
     }
 }
