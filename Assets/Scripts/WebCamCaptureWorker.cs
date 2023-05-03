@@ -156,9 +156,9 @@ namespace LKWebCam
                                 for (int j = start; j < end; j++)
                                 {
                                     int jb = j * width;
-                                    int ybase = (j + heightOffset) * textureWidth;
+                                    int c = widthOffset + (j + heightOffset) * textureWidth;
                                     for (int i = 0; i < width; i++)
-                                        mOutputBuffer[i + jb] = mInputBuffer[(i + widthOffset) + ybase];
+                                        mOutputBuffer[i + jb] = mInputBuffer[i + c];
                                 }
                             });
                         }
@@ -177,9 +177,9 @@ namespace LKWebCam
                                 for (int j = start; j < end; j++)
                                 {
                                     int jb = j * width;
-                                    int x = textureWidth - 1 - (j + heightOffset);
+                                    int c = (textureWidth - 1 - (j + heightOffset)) + widthOffset * textureWidth;
                                     for (int i = 0; i < width; i++)
-                                        mOutputBuffer[i + jb] = mInputBuffer[x + (i + widthOffset) * textureWidth];
+                                        mOutputBuffer[i + jb] = mInputBuffer[c + i * textureWidth];
                                 }
                             });
                         }
@@ -197,9 +197,9 @@ namespace LKWebCam
 
                                 for (int i = start; i < end; i++)
                                 {
-                                    int x = textureWidth - 1 - (i + widthOffset);
+                                    int c = (textureWidth - 1 - (i + widthOffset)) + (textureHeight - 1 - heightOffset) * textureWidth;
                                     for (int j = 0; j < height; j++)
-                                        mOutputBuffer[i + j * width] = mInputBuffer[x + (textureHeight - 1 - (j + heightOffset)) * textureWidth];
+                                        mOutputBuffer[i + j * width] = mInputBuffer[c - j * textureWidth];
                                 }
                             });
                         }
@@ -217,9 +217,9 @@ namespace LKWebCam
 
                                 for (int i = start; i < end; i++)
                                 {
-                                    int y = textureHeight - 1 - (i + widthOffset);
+                                    int c = heightOffset + (textureHeight - 1 - (i + widthOffset)) * textureWidth;
                                     for (int j = 0; j < height; j++)
-                                        mOutputBuffer[i + j * width] = mInputBuffer[(j + heightOffset) + y * textureWidth];
+                                        mOutputBuffer[i + j * width] = mInputBuffer[j + c];
                                 }
                             });
                         }
@@ -242,9 +242,9 @@ namespace LKWebCam
 
                                 for (int i = start; i < end; i++)
                                 {
-                                    int x = textureWidth - 1 - (i + widthOffset);
+                                    int c = (textureWidth - 1 - (i + widthOffset)) + heightOffset * textureWidth;
                                     for (int j = 0; j < height; j++)
-                                        mOutputBuffer[i + j * width] = mInputBuffer[x + (j + heightOffset) * textureWidth];
+                                        mOutputBuffer[i + j * width] = mInputBuffer[c + j * textureWidth];
                                 }
                             });
                         }
@@ -262,9 +262,9 @@ namespace LKWebCam
 
                                 for (int i = start; i < end; i++)
                                 {
-                                    int y = textureHeight - 1 - (i + widthOffset);
+                                    int c = textureWidth - 1 - heightOffset + (textureHeight - 1 - (i + widthOffset)) * textureWidth;
                                     for (int j = 0; j < height; j++)
-                                        mOutputBuffer[i + j * width] = mInputBuffer[(textureWidth - 1 - (j + heightOffset)) + y * textureWidth];
+                                        mOutputBuffer[i + j * width] = mInputBuffer[c - j];
                                 }
                             });
                         }
@@ -283,9 +283,9 @@ namespace LKWebCam
                                 for (int j = start; j < end; j++)
                                 {
                                     int jb = j * width;
-                                    int y = textureHeight - 1 - (j + heightOffset);
+                                    int c = widthOffset + (textureHeight - 1 - (j + heightOffset)) * textureWidth;
                                     for (int i = 0; i < width; i++)
-                                        mOutputBuffer[i + jb] = mInputBuffer[(i + widthOffset) + y * textureWidth];
+                                        mOutputBuffer[i + jb] = mInputBuffer[i + c];
                                 }
                             });
                         }
@@ -303,9 +303,9 @@ namespace LKWebCam
 
                                 for (int i = start; i < end; i++)
                                 {
-                                    int ybase = (i + widthOffset) * textureWidth;
+                                    int c = heightOffset + (i + widthOffset) * textureWidth;
                                     for (int j = 0; j < height; j++)
-                                        mOutputBuffer[i + j * width] = mInputBuffer[(j + heightOffset) + ybase];
+                                        mOutputBuffer[i + j * width] = mInputBuffer[j + c];
                                 }
                             });
                         }
