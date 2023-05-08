@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Threading;
@@ -138,13 +139,13 @@ namespace LKWebCam
             mOutputTextureSize = new Vector2Int(width, height);
 
             Thread[] threads = new Thread[mThreadCount];
+            mSlice = GetSlice(height, mThreadCount);
 
             if (!mFlipHorizontally)
             {
                 switch (rotationStep)
                 {
                     case 0:
-                        mSlice = GetSlice(height, mThreadCount);
                         for (int th = 0; th < mThreadCount; th++)
                         {
                             int index = th;
@@ -157,15 +158,37 @@ namespace LKWebCam
                                 {
                                     int jb = j * width;
                                     int c = widthOffset + (j + heightOffset) * textureWidth;
-                                    for (int i = 0; i < width; i++)
-                                        mOutputBuffer[i + jb] = mInputBuffer[i + c];
+                                    Array.Copy(mInputBuffer, c, mOutputBuffer, jb, width);
                                 }
                             });
                         }
                         break;
 
                     case 1:
-                        mSlice = GetSlice(height, mThreadCount);
+                        for (int th = 0; th < mThreadCount; th++)
+                        {
+                            int index = th;
+                            threads[th] = new Thread(() =>
+                            {
+                                int start = mSlice[index];
+                                int end = mSlice[index + 1];
+
+                                int[] iw = new int[width];
+                                for (int i = 0; i < width; i++)
+                                    iw[i] = i * textureWidth;
+
+                                for (int j = start; j < end; j++)
+                                {
+                                    int jb = j * width;
+                                    int c = (textureWidth - 1 - (j + heightOffset)) + widthOffset * textureWidth;
+                                    for (int i = 0; i < width; i++)
+                                        mOutputBuffer[i + jb] = mInputBuffer[c + iw[i]];
+                                }
+                            });
+                        }
+                        break;
+
+                    case 2:
                         for (int th = 0; th < mThreadCount; th++)
                         {
                             int index = th;
@@ -177,36 +200,15 @@ namespace LKWebCam
                                 for (int j = start; j < end; j++)
                                 {
                                     int jb = j * width;
-                                    int c = (textureWidth - 1 - (j + heightOffset)) + widthOffset * textureWidth;
+                                    int c = textureWidth - 1 - widthOffset + (textureHeight - 1 - j - heightOffset) * textureWidth;
                                     for (int i = 0; i < width; i++)
-                                        mOutputBuffer[i + jb] = mInputBuffer[c + i * textureWidth];
-                                }
-                            });
-                        }
-                        break;
-
-                    case 2:
-                        mSlice = GetSlice(width, mThreadCount);
-                        for (int th = 0; th < mThreadCount; th++)
-                        {
-                            int index = th;
-                            threads[th] = new Thread(() =>
-                            {
-                                int start = mSlice[index];
-                                int end = mSlice[index + 1];
-
-                                for (int i = start; i < end; i++)
-                                {
-                                    int c = (textureWidth - 1 - (i + widthOffset)) + (textureHeight - 1 - heightOffset) * textureWidth;
-                                    for (int j = 0; j < height; j++)
-                                        mOutputBuffer[i + j * width] = mInputBuffer[c - j * textureWidth];
+                                        mOutputBuffer[i + jb] = mInputBuffer[c - i];
                                 }
                             });
                         }
                         break;
 
                     case 3:
-                        mSlice = GetSlice(width, mThreadCount);
                         for (int th = 0; th < mThreadCount; th++)
                         {
                             int index = th;
@@ -215,11 +217,16 @@ namespace LKWebCam
                                 int start = mSlice[index];
                                 int end = mSlice[index + 1];
 
-                                for (int i = start; i < end; i++)
+                                int[] iw = new int[width];
+                                for (int i = 0; i < width; i++)
+                                    iw[i] = i * textureWidth;
+
+                                for (int j = start; j < end; j++)
                                 {
-                                    int c = heightOffset + (textureHeight - 1 - (i + widthOffset)) * textureWidth;
-                                    for (int j = 0; j < height; j++)
-                                        mOutputBuffer[i + j * width] = mInputBuffer[j + c];
+                                    int jb = j * width;
+                                    int c = j + heightOffset + (textureHeight - 1 - widthOffset) * textureWidth;
+                                    for (int i = 0; i < width; i++)
+                                        mOutputBuffer[i + jb] = mInputBuffer[c - iw[i]];
                                 }
                             });
                         }
@@ -231,7 +238,6 @@ namespace LKWebCam
                 switch (rotationStep)
                 {
                     case 0:
-                        mSlice = GetSlice(width, mThreadCount);
                         for (int th = 0; th < mThreadCount; th++)
                         {
                             int index = th;
@@ -240,18 +246,18 @@ namespace LKWebCam
                                 int start = mSlice[index];
                                 int end = mSlice[index + 1];
 
-                                for (int i = start; i < end; i++)
+                                for (int j = start; j < end; j++)
                                 {
-                                    int c = (textureWidth - 1 - (i + widthOffset)) + heightOffset * textureWidth;
-                                    for (int j = 0; j < height; j++)
-                                        mOutputBuffer[i + j * width] = mInputBuffer[c + j * textureWidth];
+                                    int jb = j * width;
+                                    int c = textureWidth - 1 - widthOffset + (j + heightOffset) * textureWidth;
+                                    for (int i = 0; i < width; i++)
+                                        mOutputBuffer[i + jb] = mInputBuffer[c - i];
                                 }
                             });
                         }
                         break;
 
                     case 1:
-                        mSlice = GetSlice(width, mThreadCount);
                         for (int th = 0; th < mThreadCount; th++)
                         {
                             int index = th;
@@ -260,18 +266,22 @@ namespace LKWebCam
                                 int start = mSlice[index];
                                 int end = mSlice[index + 1];
 
-                                for (int i = start; i < end; i++)
+                                int[] iw = new int[width];
+                                for (int i = 0; i < width; i++)
+                                    iw[i] = i * textureWidth;
+
+                                for (int j = start; j < end; j++)
                                 {
-                                    int c = textureWidth - 1 - heightOffset + (textureHeight - 1 - (i + widthOffset)) * textureWidth;
-                                    for (int j = 0; j < height; j++)
-                                        mOutputBuffer[i + j * width] = mInputBuffer[c - j];
+                                    int jb = j * width;
+                                    int c = textureWidth - 1 - j - heightOffset + (textureHeight - 1 - widthOffset) * textureWidth;
+                                    for (int i = 0; i < width; i++)
+                                        mOutputBuffer[i + jb] = mInputBuffer[c - iw[i]];
                                 }
                             });
                         }
                         break;
 
                     case 2:
-                        mSlice = GetSlice(height, mThreadCount);
                         for (int th = 0; th < mThreadCount; th++)
                         {
                             int index = th;
@@ -284,15 +294,13 @@ namespace LKWebCam
                                 {
                                     int jb = j * width;
                                     int c = widthOffset + (textureHeight - 1 - (j + heightOffset)) * textureWidth;
-                                    for (int i = 0; i < width; i++)
-                                        mOutputBuffer[i + jb] = mInputBuffer[i + c];
+                                    Array.Copy(mInputBuffer, c, mOutputBuffer, jb, width);
                                 }
                             });
                         }
                         break;
 
                     case 3:
-                        mSlice = GetSlice(width, mThreadCount);
                         for (int th = 0; th < mThreadCount; th++)
                         {
                             int index = th;
@@ -301,11 +309,16 @@ namespace LKWebCam
                                 int start = mSlice[index];
                                 int end = mSlice[index + 1];
 
-                                for (int i = start; i < end; i++)
+                                int[] iw = new int[width];
+                                for (int i = 0; i < width; i++)
+                                    iw[i] = i * textureWidth;
+
+                                for (int j = start; j < end; j++)
                                 {
-                                    int c = heightOffset + (i + widthOffset) * textureWidth;
-                                    for (int j = 0; j < height; j++)
-                                        mOutputBuffer[i + j * width] = mInputBuffer[j + c];
+                                    int jb = j * width;
+                                    int c = j + heightOffset + widthOffset * textureWidth;
+                                    for (int i = 0; i < width; i++)
+                                        mOutputBuffer[i + jb] = mInputBuffer[c + iw[i]];
                                 }
                             });
                         }
