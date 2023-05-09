@@ -384,31 +384,31 @@ namespace LKWebCam
         {
 #if !UNITY_EDITOR
 #if UNITY_ANDROID
-		if (Permission.HasUserAuthorizedPermission(Permission.Camera))
-		{
-			callback?.Invoke(Error.Success);
-			yield break;
-		}
+            if (Permission.HasUserAuthorizedPermission(Permission.Camera))
+            {
+                callback?.Invoke(Error.Success);
+                yield break;
+            }
 
-		Permission.RequestUserPermission(Permission.Camera);
+            Permission.RequestUserPermission(Permission.Camera);
 
-		while (!Permission.HasUserAuthorizedPermission(Permission.Camera))
-			yield return null;
+            while (!Permission.HasUserAuthorizedPermission(Permission.Camera))
+                yield return null;
 
-		callback?.Invoke(Error.Success);
+            callback?.Invoke(Error.Success);
 #elif UNITY_IOS
-		if (Application.HasUserAuthorization(UserAuthorization.WebCam))
-		{
-			callback?.Invoke(Error.Success);
-			yield break;
-		}
+		    if (Application.HasUserAuthorization(UserAuthorization.WebCam))
+		    {
+			    callback?.Invoke(Error.Success);
+			    yield break;
+		    }
 
-		yield return Application.RequestUserAuthorization(UserAuthorization.WebCam);
+		    yield return Application.RequestUserAuthorization(UserAuthorization.WebCam);
 
-		if (Application.HasUserAuthorization(UserAuthorization.WebCam))
-			callback?.Invoke(Error.Success);
-		else
-			callback?.Invoke(Error.Permission);
+		    if (Application.HasUserAuthorization(UserAuthorization.WebCam))
+			    callback?.Invoke(Error.Success);
+		    else
+			    callback?.Invoke(Error.Permission);
 #endif
 #else
             callback?.Invoke(Error.Success);
@@ -420,9 +420,9 @@ namespace LKWebCam
         {
 #if !UNITY_EDITOR
 #if UNITY_ANDROID
-        return Permission.HasUserAuthorizedPermission(Permission.Camera);
+            return Permission.HasUserAuthorizedPermission(Permission.Camera);
 #elif UNITY_IOS
-        return Application.HasUserAuthorization(UserAuthorization.WebCam);
+            return Application.HasUserAuthorization(UserAuthorization.WebCam);
 #endif
 #else
             return true;
