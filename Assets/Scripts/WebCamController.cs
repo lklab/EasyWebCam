@@ -126,18 +126,6 @@ namespace LKWebCam
         }
 
         /// <summary>
-        /// Stop requesting for WebCam permission
-        /// </summary>
-        public void StopRequestPermission()
-        {
-            if (mAcquireWebCamPermissionCoroutine != null)
-            {
-                StopCoroutine(mAcquireWebCamPermissionCoroutine);
-                mAcquireWebCamPermissionCoroutine = null;
-            }
-        }
-
-        /// <summary>
         /// Start WebCam
         /// </summary>
         /// <returns>
@@ -389,13 +377,13 @@ namespace LKWebCam
                 callback?.Invoke(Error.Success);
                 yield break;
             }
+            
+            PermissionCallbacks permissionCallbacks = new PermissionCallbacks();
+            permissionCallbacks.PermissionDenied += (string msg) => callback?.Invoke(Error.Permission);
+            permissionCallbacks.PermissionDeniedAndDontAskAgain += (string msg) => callback?.Invoke(Error.Permission);
+            permissionCallbacks.PermissionGranted += (string msg) => callback?.Invoke(Error.Success);
 
-            Permission.RequestUserPermission(Permission.Camera);
-
-            while (!Permission.HasUserAuthorizedPermission(Permission.Camera))
-                yield return null;
-
-            callback?.Invoke(Error.Success);
+            Permission.RequestUserPermission(Permission.Camera, permissionCallbacks);
 #elif UNITY_IOS
 		    if (Application.HasUserAuthorization(UserAuthorization.WebCam))
 		    {
