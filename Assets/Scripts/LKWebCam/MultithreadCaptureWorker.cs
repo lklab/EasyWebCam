@@ -16,11 +16,13 @@ namespace LKWebCam
         /* thread control variables */
         private bool mIsBusy = false;
 
-        /* thread contexts */
+        /* thread input contexts */
         private Color32[] mInputBuffer;
+        private int[] mSlice;
+
+        /* thread output contexts */
         private Color32[] mOutputBuffer;
         private Vector2Int mOutputTextureSize;
-        private int[] mSlice;
 
         /* properties */
         public bool IsBusy { get { return mIsBusy; } }
@@ -56,11 +58,7 @@ namespace LKWebCam
 
             if (texture == null)
                 texture = new RenderTexture(mOutputTextureSize.x, mOutputTextureSize.y, 0);
-
-            RenderTexture backup = RenderTexture.active;
-            RenderTexture.active = texture;
             Graphics.Blit(result.texture, texture);
-            RenderTexture.active = backup;
 
             return new CaptureResult<RenderTexture>(texture);
         }
@@ -82,7 +80,7 @@ namespace LKWebCam
                 for (int i = 0; i < threads.Length; i++)
                 {
                     if (threads[i].IsAlive)
-                        return CaptureResult<Texture2D>.Busy;
+                        return CaptureResult<Texture2D>.Working;
                 }
 
                 for (int i = 0; i < threads.Length; i++)
@@ -104,7 +102,7 @@ namespace LKWebCam
             System.Func<CaptureResult<Texture2D>> waitFunc = CaptureAsync(rotationAngle, flipHorizontally, clip, viewportAspect);
             CaptureResult<Texture2D> result = waitFunc();
 
-            if (result.state != CaptureState.Working || result.state != CaptureState.Success)
+            if (result.state != CaptureState.Working && result.state != CaptureState.Success)
                 return delegate { return new CaptureResult<RenderTexture>(result.state); };
             
             return delegate
@@ -116,8 +114,14 @@ namespace LKWebCam
 
                 if (result.state == CaptureState.Success)
                 {
-                    
+                    if (texture == null)
+                        texture = new RenderTexture(mOutputTextureSize.x, mOutputTextureSize.y, 0);
+                    Graphics.Blit(result.texture, texture);
+
+                    return new CaptureResult<RenderTexture>(texture);
                 }
+                else
+                    return new CaptureResult<RenderTexture>(result.state);
             };
         }
 

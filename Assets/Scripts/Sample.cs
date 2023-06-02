@@ -14,11 +14,12 @@ public class Sample : MonoBehaviour
 
     [Header("Capture UI")]
     [SerializeField] private GameObject _captureUiObject;
-    [SerializeField] private Image _captureImage;
+    [SerializeField] private RawImage _captureImage;
     [SerializeField] private AspectRatioFitter _captureAspect;
     [SerializeField] private Button _closeCaptureButton;
 
-    private Sprite mCapturedImage = null;
+    private RenderTexture mCapturedRenderTexture = null;
+    private Vector2 mViewportSize = Vector2.zero;
 
     private void Awake()
     {
@@ -26,24 +27,19 @@ public class Sample : MonoBehaviour
 
         _captureButton.onClick.AddListener(delegate
         {
-            if (mCapturedImage != null)
+            if (mViewportSize != _webCamController.Viewport.Size)
             {
-                Destroy(mCapturedImage.texture);
-                Destroy(mCapturedImage);
+                DestroyCapturedTexture();
+                mViewportSize = _webCamController.Viewport.Size;
             }
 
-            _webCamController.CaptureAsync((CaptureResult<Texture2D> result) =>
+            _webCamController.CaptureAsync(mCapturedRenderTexture, (CaptureResult<RenderTexture> result) =>
             {
                 if (result.state != CaptureState.Success)
                     return;
 
-                mCapturedImage = Sprite.Create(
-                    result.texture,
-                    new Rect(0.0f, 0.0f, result.texture.width, result.texture.height),
-                    new Vector2(0.5f, 0.5f),
-                    100.0f);
-
-                _captureImage.sprite = mCapturedImage;
+                mCapturedRenderTexture = result.texture;
+                _captureImage.texture = mCapturedRenderTexture;
                 _captureAspect.aspectRatio = (float)result.texture.width / result.texture.height;
 
                 _captureUiObject.SetActive(true);
@@ -56,6 +52,8 @@ public class Sample : MonoBehaviour
             _webCamController.StartWebCam(!_webCamController.IsFrontFacing,
                 _webCamController.Resolution,
                 _webCamController.FPS);
+
+            DestroyCapturedTexture();
         });
 
         _closeCaptureButton.onClick.AddListener(delegate
@@ -76,11 +74,16 @@ public class Sample : MonoBehaviour
 
     private void OnDestroy()
     {
-        if (mCapturedImage != null)
+        DestroyCapturedTexture();
+    }
+
+    private void DestroyCapturedTexture()
+    {
+        if (mCapturedRenderTexture != null)
         {
-            Destroy(mCapturedImage.texture);
-            Destroy(mCapturedImage);
-            mCapturedImage = null;
+            _captureImage.texture = null;
+            Destroy(mCapturedRenderTexture);
+            mCapturedRenderTexture = null;
         }
     }
 }

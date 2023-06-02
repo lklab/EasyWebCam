@@ -15,6 +15,7 @@ namespace LKWebCam
         private ScreenOrientation mCurrentOrientation = ScreenOrientation.Portrait;
 
         public RectTransform RectTr { get { return _viewport; } }
+        public Vector2 Size { get { return new Vector2(_viewport.rect.width, _viewport.rect.height); } }
         public float AspectRatio { get { return _viewport.rect.width / _viewport.rect.height; } }
         public WebCamProperties WebCamProperties { get { return mWebCamProperties; } }
 

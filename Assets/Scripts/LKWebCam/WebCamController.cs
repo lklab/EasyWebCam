@@ -70,6 +70,8 @@ namespace LKWebCam
         /// </summary>
         public WebCamTexture Texture { get; private set; } = null;
 
+        public Viewport Viewport { get { return _viewport; } }
+
         private Coroutine mAcquireWebCamPermissionCoroutine = null;
 
         private ICaptureWorker mCaptureWorker;

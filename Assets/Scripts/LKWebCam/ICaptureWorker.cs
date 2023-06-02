@@ -16,6 +16,12 @@ namespace LKWebCam
             this.texture = null;
         }
 
+        public static CaptureResult<T> Working { get; private set; } = new CaptureResult<T>
+        {
+            state = CaptureState.Working,
+            texture = null,
+        };
+
         public CaptureResult(T texture)
         {
             this.state = CaptureState.Success;
