@@ -1,11 +1,9 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
 namespace LKWebCam
 {
-    public class WebCamViewport : MonoBehaviour
+    public class Viewport : MonoBehaviour
     {
         [Header("UI components")]
         [SerializeField] private RectTransform _viewport;
@@ -17,6 +15,7 @@ namespace LKWebCam
         private ScreenOrientation mCurrentOrientation = ScreenOrientation.Portrait;
 
         public RectTransform RectTr { get { return _viewport; } }
+        public float AspectRatio { get { return _viewport.rect.width / _viewport.rect.height; } }
         public WebCamProperties WebCamProperties { get { return mWebCamProperties; } }
 
         private void Update()

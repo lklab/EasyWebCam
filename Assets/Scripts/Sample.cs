@@ -32,19 +32,19 @@ public class Sample : MonoBehaviour
                 Destroy(mCapturedImage);
             }
 
-            _webCamController.CaptureAsync((Texture2D texture) =>
+            _webCamController.CaptureAsync((CaptureResult<Texture2D> result) =>
             {
-                if (texture == null)
+                if (result.state != CaptureState.Success)
                     return;
 
                 mCapturedImage = Sprite.Create(
-                    texture,
-                    new Rect(0.0f, 0.0f, texture.width, texture.height),
+                    result.texture,
+                    new Rect(0.0f, 0.0f, result.texture.width, result.texture.height),
                     new Vector2(0.5f, 0.5f),
                     100.0f);
 
                 _captureImage.sprite = mCapturedImage;
-                _captureAspect.aspectRatio = (float)texture.width / texture.height;
+                _captureAspect.aspectRatio = (float)result.texture.width / result.texture.height;
 
                 _captureUiObject.SetActive(true);
             });

@@ -1,7 +1,6 @@
 using System;
 using System.Collections;
 using UnityEngine;
-using UnityEngine.UI;
 
 #if !UNITY_EDITOR
 #if UNITY_ANDROID
@@ -15,8 +14,10 @@ namespace LKWebCam
     {
         public enum Error { Success, Disabled, NotSupported, Permission, Busy }
 
+        public enum CaptureMode { Multithread, ComputeShader }
+
         [Header("UI")]
-        [SerializeField] private WebCamViewport _viewport;
+        [SerializeField] private Viewport _viewport;
 
         [Header("WebCam settings")]
         [SerializeField] private Vector2Int _webCamResolution = new Vector2Int(1280, 720);
@@ -25,7 +26,9 @@ namespace LKWebCam
         [SerializeField] private bool _autoResizeViewport = true;
 
         [Header("Capture settings")]
+        [SerializeField] private CaptureMode _captureMode = CaptureMode.Multithread;
         [SerializeField] private int _captureThreadCount = 4;
+        [SerializeField] private ComputeShader _captureComputeShader;
 
         /// <summary>
         /// Whether it has been initialized
@@ -62,9 +65,14 @@ namespace LKWebCam
         /// </summary>
         public bool FlipHorizontally { get; private set; }
 
+        /// <summary>
+        /// Current WebCam texture
+        /// </summary>
         public WebCamTexture Texture { get; private set; } = null;
 
         private Coroutine mAcquireWebCamPermissionCoroutine = null;
+
+        private ICaptureWorker mCaptureWorker;
 
         private void Awake()
         {
@@ -257,8 +265,11 @@ namespace LKWebCam
             if (IsPlaying)
                 return Error.Busy;
 
+            /* make WebCam texture */
             Texture = new WebCamTexture(device.name, resolution.x, resolution.y, fps);
             Texture.Play();
+
+            /* setup viewport */
             _viewport.SetWebCamTexture(Texture);
 
             if (_autoResizeViewport)
@@ -268,7 +279,23 @@ namespace LKWebCam
                 _viewport.RectTr.localScale = new Vector3(-1.0f, 1.0f, 1.0f);
             else
                 _viewport.RectTr.localScale = Vector3.one;
+            
+            /* setup capture worker */
+            switch (_captureMode)
+            {
+                case CaptureMode.Multithread:
+                    mCaptureWorker = new MultithreadCaptureWorker(Texture, _captureThreadCount);
+                    break;
 
+                case CaptureMode.ComputeShader:
+                    if (ComputeShaderCaptureWorker.IsSupported(_captureComputeShader))
+                        mCaptureWorker = new ComputeShaderCaptureWorker(_captureComputeShader);
+                    else
+                        mCaptureWorker = new MultithreadCaptureWorker(Texture, _captureThreadCount);
+                    break;
+            }
+
+            /* store variables */
             _webCamResolution = resolution;
             _webCamFPS = fps;
             _useFrontFacing = device.isFrontFacing;
@@ -311,26 +338,34 @@ namespace LKWebCam
         /// <param name="flipHorizontally">Horizontally flip the photo</param>
         /// <param name="clip">Whether to clip only the part visible in the viewport</param>
         /// <returns>Taken photo. Must Destroy() when no longer use it.</returns>
-        public Texture2D Capture(float rotationAngle, bool flipHorizontally, bool clip)
+        public CaptureResult<Texture2D> Capture(float rotationAngle, bool flipHorizontally, bool clip)
         {
             if (!IsPlaying)
-                return null;
+                return CaptureResult<Texture2D>.Fail;
 
-            WebCamCaptureWorker worker = GetCaptureWorker(rotationAngle, flipHorizontally, clip);
-            return worker.Run();
+            return mCaptureWorker.Capture(rotationAngle, flipHorizontally, clip, _viewport.AspectRatio);
         }
 
         /// <summary>
         /// Taking a photo
         /// </summary>
         /// <returns>Taken photo. Must Destroy() when no longer use it.</returns>
-        public Texture2D Capture()
+        public CaptureResult<Texture2D> Capture()
+        {
+            return Capture(_viewport.WebCamProperties.videoRotationAngle, FlipHorizontally, true);
+        }
+
+        public CaptureResult<RenderTexture> Capture(RenderTexture texture, float rotationAngle, bool flipHorizontally, bool clip)
         {
             if (!IsPlaying)
-                return null;
+                return CaptureResult<RenderTexture>.Fail;
 
-            WebCamCaptureWorker worker = GetCaptureWorker(_viewport.WebCamProperties.videoRotationAngle, FlipHorizontally, true);
-            return worker.Run();
+            return mCaptureWorker.Capture(texture, rotationAngle, flipHorizontally, clip, _viewport.AspectRatio);
+        }
+
+        public CaptureResult<RenderTexture> Capture(RenderTexture texture)
+        {
+            return Capture(texture, _viewport.WebCamProperties.videoRotationAngle, FlipHorizontally, true);
         }
 
         /// <summary>
@@ -340,32 +375,42 @@ namespace LKWebCam
         /// <param name="flipHorizontally">Horizontally flip the photo</param>
         /// <param name="clip">Whether to clip only the part visible in the viewport</param>
         /// <param name="callback">Callback to get a photo. Must Destroy() when no longer use the photo.</param>
-        public void CaptureAsync(float rotationAngle, bool flipHorizontally, bool clip, System.Action<Texture2D> callback)
+        public void CaptureAsync(float rotationAngle, bool flipHorizontally, bool clip, System.Action<CaptureResult<Texture2D>> callback)
         {
             if (!IsPlaying)
             {
-                callback?.Invoke(null);
+                callback?.Invoke(CaptureResult<Texture2D>.Fail);
                 return;
             }
 
-            WebCamCaptureWorker worker = GetCaptureWorker(rotationAngle, flipHorizontally, clip);
-            StartCoroutine(WaitCaptureCoroutine(worker.RunAsync(), callback));
+            System.Func<CaptureResult<Texture2D>> waitFunc = mCaptureWorker.CaptureAsync(rotationAngle, flipHorizontally, clip, _viewport.AspectRatio);
+            StartCoroutine(WaitCaptureCoroutine(waitFunc, callback));
         }
 
         /// <summary>
         /// Taking a photo (async)
         /// </summary>
         /// <param name="callback">Callback to get a photo. Must Destroy() when no longer use the photo.</param>
-        public void CaptureAsync(System.Action<Texture2D> callback)
+        public void CaptureAsync(System.Action<CaptureResult<Texture2D>> callback)
+        {
+            CaptureAsync(_viewport.WebCamProperties.videoRotationAngle, FlipHorizontally, true, callback);
+        }
+
+        public void CaptureAsync(RenderTexture texture, float rotationAngle, bool flipHorizontally, bool clip, System.Action<CaptureResult<RenderTexture>> callback)
         {
             if (!IsPlaying)
             {
-                callback?.Invoke(null);
+                callback?.Invoke(CaptureResult<RenderTexture>.Fail);
                 return;
             }
 
-            WebCamCaptureWorker worker = GetCaptureWorker(_viewport.WebCamProperties.videoRotationAngle, FlipHorizontally, true);
-            StartCoroutine(WaitCaptureCoroutine(worker.RunAsync(), callback));
+            System.Func<CaptureResult<RenderTexture>> waitFunc = mCaptureWorker.CaptureAsync(texture, rotationAngle, flipHorizontally, clip, _viewport.AspectRatio);
+            StartCoroutine(WaitCaptureCoroutine(waitFunc, callback));
+        }
+
+        public void CaptureAsync(RenderTexture texture, System.Action<CaptureResult<RenderTexture>> callback)
+        {
+            CaptureAsync(texture, _viewport.WebCamProperties.videoRotationAngle, FlipHorizontally, true, callback);
         }
 
         private IEnumerator AcquireWebCamPermission(Action<Error> callback)
@@ -417,28 +462,17 @@ namespace LKWebCam
 #endif
         }
 
-        private WebCamCaptureWorker GetCaptureWorker(float rotationAngle, bool flipHorizontally, bool clip)
+        private IEnumerator WaitCaptureCoroutine<T>(System.Func<CaptureResult<T>> waitFunc, System.Action<CaptureResult<T>> callback) where T : Texture
         {
-            return new WebCamCaptureWorker(
-                texture: Texture,
-                rotationAngle: rotationAngle,
-                flipHorizontally: flipHorizontally,
-                clip: clip,
-                viewportAspect: _viewport.RectTr.rect.width / _viewport.RectTr.rect.height,
-                threadCount: _captureThreadCount);
-        }
+            CaptureResult<T> result = waitFunc();
 
-        private IEnumerator WaitCaptureCoroutine(System.Func<Texture2D> waitFunc, System.Action<Texture2D> callback)
-        {
-            Texture2D texture = null;
-
-            while (texture == null)
+            while (result.state == CaptureState.Working)
             {
                 yield return null;
-                texture = waitFunc();
+                result = waitFunc();
             }
 
-            callback?.Invoke(texture);
+            callback?.Invoke(result);
         }
     }
 }

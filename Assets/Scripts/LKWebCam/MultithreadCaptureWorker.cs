@@ -1,6 +1,4 @@
 using System;
-using System.Collections;
-using System.Collections.Generic;
 using System.Threading;
 using UnityEngine;
 
@@ -9,86 +7,123 @@ namespace LKWebCam
     /// <summary>
     /// Class that rotates and mirrors the captured image according to the webcam orientation.
     /// </summary>
-    public class WebCamCaptureWorker
+    public class MultithreadCaptureWorker : ICaptureWorker
     {
+        /* config variables */
         private WebCamTexture mInputTexture;
-        private float mRotationAngle;
-        private bool mFlipHorizontally;
-        private bool mClip;
-        private float mViewportAspect;
         private int mThreadCount;
 
-        private Thread[] mThreads = null;
-        private Texture2D mOutputTexture = null;
-        private Vector2Int mOutputTextureSize;
+        /* thread control variables */
+        private bool mIsBusy = false;
 
         /* thread contexts */
         private Color32[] mInputBuffer;
         private Color32[] mOutputBuffer;
+        private Vector2Int mOutputTextureSize;
         private int[] mSlice;
 
-        public WebCamCaptureWorker(WebCamTexture texture, float rotationAngle, bool flipHorizontally,
-            bool clip, float viewportAspect, int threadCount)
+        /* properties */
+        public bool IsBusy { get { return mIsBusy; } }
+
+        public MultithreadCaptureWorker(WebCamTexture texture, int threadCount)
         {
             mInputTexture = texture;
-            mRotationAngle = rotationAngle;
-            mFlipHorizontally = flipHorizontally;
-            mClip = clip;
-            mViewportAspect = viewportAspect;
             mThreadCount = threadCount;
         }
 
-        public System.Func<Texture2D> RunAsync()
+        public CaptureResult<Texture2D> Capture(float rotationAngle, bool flipHorizontally, bool clip, float viewportAspect)
         {
-            if (mOutputTexture != null)
-                return delegate { return mOutputTexture; };
+            if (mIsBusy)
+                return CaptureResult<Texture2D>.Busy;
 
-            if (mThreads == null)
-                mThreads = RunInternal();
+            Thread[] threads = RunInternal(rotationAngle, flipHorizontally, clip, viewportAspect);
+
+            for (int i = 0; i < threads.Length; i++)
+                threads[i].Join();
+
+            Texture2D outputTexture = new Texture2D(mOutputTextureSize.x, mOutputTextureSize.y);
+            outputTexture.SetPixels32(mOutputBuffer);
+            outputTexture.Apply();
+            return new CaptureResult<Texture2D>(outputTexture);
+        }
+        
+        public CaptureResult<RenderTexture> Capture(RenderTexture texture, float rotationAngle, bool flipHorizontally, bool clip, float viewportAspect)
+        {
+            CaptureResult<Texture2D> result = Capture(rotationAngle, flipHorizontally, clip, viewportAspect);
+
+            if (result.state != CaptureState.Success)
+                return new CaptureResult<RenderTexture>(result.state);
+
+            if (texture == null)
+                texture = new RenderTexture(mOutputTextureSize.x, mOutputTextureSize.y, 0);
+
+            RenderTexture backup = RenderTexture.active;
+            RenderTexture.active = texture;
+            Graphics.Blit(result.texture, texture);
+            RenderTexture.active = backup;
+
+            return new CaptureResult<RenderTexture>(texture);
+        }
+
+        public System.Func<CaptureResult<Texture2D>> CaptureAsync(float rotationAngle, bool flipHorizontally, bool clip, float viewportAspect)
+        {
+            if (mIsBusy)
+                return delegate { return CaptureResult<Texture2D>.Busy; };
+            mIsBusy = true;
+
+            Texture2D outputTexture = null;
+            Thread[] threads = RunInternal(rotationAngle, flipHorizontally, clip, viewportAspect);
 
             return delegate
             {
-                if (mOutputTexture != null)
-                    return mOutputTexture;
+                if (outputTexture != null)
+                    return new CaptureResult<Texture2D>(outputTexture);
 
-                for (int i = 0; i < mThreads.Length; i++)
+                for (int i = 0; i < threads.Length; i++)
                 {
-                    if (mThreads[i].IsAlive)
-                        return null;
+                    if (threads[i].IsAlive)
+                        return CaptureResult<Texture2D>.Busy;
                 }
 
-                for (int i = 0; i < mThreads.Length; i++)
-                    mThreads[i].Join();
+                for (int i = 0; i < threads.Length; i++)
+                    threads[i].Join();
 
-                mOutputTexture = new Texture2D(mOutputTextureSize.x, mOutputTextureSize.y);
-                mOutputTexture.SetPixels32(mOutputBuffer);
-                mOutputTexture.Apply();
-                return mOutputTexture;
+                outputTexture = new Texture2D(mOutputTextureSize.x, mOutputTextureSize.y);
+                outputTexture.SetPixels32(mOutputBuffer);
+                outputTexture.Apply();
+
+                mIsBusy = false;
+                return new CaptureResult<Texture2D>(outputTexture);
+            };
+        }
+        
+        public System.Func<CaptureResult<RenderTexture>> CaptureAsync(RenderTexture texture, float rotationAngle, bool flipHorizontally, bool clip, float viewportAspect)
+        {
+            RenderTexture outputTexture = null;
+
+            System.Func<CaptureResult<Texture2D>> waitFunc = CaptureAsync(rotationAngle, flipHorizontally, clip, viewportAspect);
+            CaptureResult<Texture2D> result = waitFunc();
+
+            if (result.state != CaptureState.Working || result.state != CaptureState.Success)
+                return delegate { return new CaptureResult<RenderTexture>(result.state); };
+            
+            return delegate
+            {
+                if (outputTexture != null)
+                    return new CaptureResult<RenderTexture>(outputTexture);
+
+                CaptureResult<Texture2D> result = waitFunc();
+
+                if (result.state == CaptureState.Success)
+                {
+                    
+                }
             };
         }
 
-        public Texture2D Run()
+        private Thread[] RunInternal(float rotationAngle, bool flipHorizontally, bool clip, float viewportAspect)
         {
-            if (mOutputTexture != null)
-                return mOutputTexture;
-
-            if (mThreads != null)
-                return null; /* busy. This code will probably never run. */
-
-            mThreads = RunInternal();
-
-            for (int i = 0; i < mThreads.Length; i++)
-                mThreads[i].Join();
-
-            mOutputTexture = new Texture2D(mOutputTextureSize.x, mOutputTextureSize.y);
-            mOutputTexture.SetPixels32(mOutputBuffer);
-            mOutputTexture.Apply();
-            return mOutputTexture;
-        }
-
-        private Thread[] RunInternal()
-        {
-            int rotationStep = Mathf.RoundToInt(mRotationAngle / 90.0f);
+            int rotationStep = Mathf.RoundToInt(rotationAngle / 90.0f);
             if (rotationStep >= 4)
                 rotationStep = rotationStep % 4;
             else if (rotationStep < 0)
@@ -116,19 +151,19 @@ namespace LKWebCam
                     break;
             }
 
-            if (mClip)
+            if (clip)
             {
                 float textureAspect = (float)width / height;
 
-                if (mViewportAspect > textureAspect)
+                if (viewportAspect > textureAspect)
                 {
-                    int newHeight = (int)((float)width / mViewportAspect);
+                    int newHeight = (int)((float)width / viewportAspect);
                     heightOffset = (height - newHeight) / 2;
                     height = newHeight;
                 }
                 else
                 {
-                    int newWidth = (int)((float)height * mViewportAspect);
+                    int newWidth = (int)((float)height * viewportAspect);
                     widthOffset = (width - newWidth) / 2;
                     width = newWidth;
                 }
@@ -141,7 +176,7 @@ namespace LKWebCam
             Thread[] threads = new Thread[mThreadCount];
             mSlice = GetSlice(height, mThreadCount);
 
-            if (!mFlipHorizontally)
+            if (!flipHorizontally)
             {
                 switch (rotationStep)
                 {
