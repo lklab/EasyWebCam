@@ -415,6 +415,14 @@ namespace LKWebCam
             CaptureAsync(texture, _viewport.WebCamProperties.videoRotationAngle, FlipHorizontally, true, callback);
         }
 
+        public bool IsCaptureBusy()
+        {
+            if (!IsPlaying)
+                return false;
+            
+            return mCaptureWorker.IsBusy;
+        }
+
         private IEnumerator AcquireWebCamPermission(Action<Error> callback)
         {
 #if !UNITY_EDITOR

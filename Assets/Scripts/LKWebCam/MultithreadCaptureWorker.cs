@@ -59,6 +59,7 @@ namespace LKWebCam
             if (texture == null)
                 texture = new RenderTexture(mOutputTextureSize.x, mOutputTextureSize.y, 0);
             Graphics.Blit(result.texture, texture);
+            UnityEngine.Object.Destroy(result.texture);
 
             return new CaptureResult<RenderTexture>(texture);
         }
@@ -116,7 +117,9 @@ namespace LKWebCam
                 {
                     if (texture == null)
                         texture = new RenderTexture(mOutputTextureSize.x, mOutputTextureSize.y, 0);
+                    outputTexture = texture;
                     Graphics.Blit(result.texture, texture);
+                    UnityEngine.Object.Destroy(result.texture);
 
                     return new CaptureResult<RenderTexture>(texture);
                 }

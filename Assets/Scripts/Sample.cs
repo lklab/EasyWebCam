@@ -27,6 +27,9 @@ public class Sample : MonoBehaviour
 
         _captureButton.onClick.AddListener(delegate
         {
+            if (_webCamController.IsCaptureBusy())
+                return;
+                
             if (mViewportSize != _webCamController.Viewport.Size)
             {
                 DestroyCapturedTexture();
