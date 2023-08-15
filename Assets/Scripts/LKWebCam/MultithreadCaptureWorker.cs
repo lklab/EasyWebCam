@@ -130,12 +130,7 @@ namespace LKWebCam
 
         private Thread[] RunInternal(float rotationAngle, bool flipHorizontally, bool clip, float viewportAspect)
         {
-            int rotationStep = Mathf.RoundToInt(rotationAngle / 90.0f);
-            if (rotationStep >= 4)
-                rotationStep = rotationStep % 4;
-            else if (rotationStep < 0)
-                rotationStep += -((rotationStep + 1) / 4 - 1) * 4;
-
+            int rotationStep = Utils.GetRotationStep(rotationAngle);
             int textureWidth = mInputTexture.width;
             int textureHeight = mInputTexture.height;
             int width = 0;

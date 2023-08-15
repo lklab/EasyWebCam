@@ -1,14 +1,80 @@
-// Each #kernel tells which function to compile; you can have many kernels
-#pragma kernel CSMain
+#pragma kernel TopLeft
+#pragma kernel RightTop
+#pragma kernel BottomRight
+#pragma kernel LeftBottom
+#pragma kernel TopRight
+#pragma kernel LeftTop
+#pragma kernel BottomLeft
+#pragma kernel RightBottom
 
-// Create a RenderTexture with enableRandomWrite flag and set it
-// with cs.SetTexture
-RWTexture2D<float4> Result;
+RWTexture2D<float4> _CapturedTexture;
+Texture2D<float4> _WebCamTexture;
+SamplerState linearClampSampler;
+float4 _Rect;
 
 [numthreads(8,8,1)]
-void CSMain (uint3 id : SV_DispatchThreadID)
+void TopLeft (uint3 id : SV_DispatchThreadID)
 {
-    // TODO: insert actual code here!
+    float2 uv = (id.xy + _Rect.xy) / _Rect.zw;
+    _CapturedTexture[id.xy] = _WebCamTexture.SampleLevel(linearClampSampler, uv, 0);
+}
 
-    Result[id.xy] = float4(id.x & id.y, (id.x & 15)/15.0, (id.y & 15)/15.0, 0.0);
+[numthreads(8,8,1)]
+void RightTop (uint3 id : SV_DispatchThreadID)
+{
+    float2 uv;
+    uv.x = _Rect.z - id.y - _Rect.y - 1;
+    uv.y = id.x + _Rect.x;
+    _CapturedTexture[id.xy] = _WebCamTexture.SampleLevel(linearClampSampler, uv / _Rect.zw, 0);
+}
+
+[numthreads(8,8,1)]
+void BottomRight (uint3 id : SV_DispatchThreadID)
+{
+    float2 uv;
+    uv.x = _Rect.z - id.x - _Rect.x - 1;
+    uv.y = _Rect.w - id.y - _Rect.y - 1;
+    _CapturedTexture[id.xy] = _WebCamTexture.SampleLevel(linearClampSampler, uv / _Rect.zw, 0);
+}
+
+[numthreads(8,8,1)]
+void LeftBottom (uint3 id : SV_DispatchThreadID)
+{
+    float2 uv;
+    uv.x = id.y + _Rect.y;
+    uv.y = _Rect.w - id.x - _Rect.x - 1;
+    _CapturedTexture[id.xy] = _WebCamTexture.SampleLevel(linearClampSampler, uv / _Rect.zw, 0);
+}
+
+[numthreads(8,8,1)]
+void TopRight (uint3 id : SV_DispatchThreadID)
+{
+    float2 uv = id.xy + _Rect.xy;
+    uv.x = _Rect.z - uv.x - 1;
+    _CapturedTexture[id.xy] = _WebCamTexture[uv];
+}
+
+[numthreads(8,8,1)]
+void LeftTop (uint3 id : SV_DispatchThreadID)
+{
+    float2 uv;
+    uv.x = _Rect.z - id.y - _Rect.y - 1;
+    uv.y = _Rect.w - id.x - _Rect.x - 1;
+    _CapturedTexture[id.xy] = _WebCamTexture.SampleLevel(linearClampSampler, uv / _Rect.zw, 0);
+}
+
+[numthreads(8,8,1)]
+void BottomLeft (uint3 id : SV_DispatchThreadID)
+{
+    float2 uv;
+    uv.x = id.x + _Rect.x;
+    uv.y = _Rect.w - id.y - _Rect.y - 1;
+    _CapturedTexture[id.xy] = _WebCamTexture.SampleLevel(linearClampSampler, uv / _Rect.zw, 0);
+}
+
+[numthreads(8,8,1)]
+void RightBottom (uint3 id : SV_DispatchThreadID)
+{
+    float2 uv = (id.yx + _Rect.yx) / _Rect.zw;
+    _CapturedTexture[id.xy] = _WebCamTexture.SampleLevel(linearClampSampler, uv, 0);
 }

@@ -291,7 +291,7 @@ namespace LKWebCam
 
                 case CaptureMode.ComputeShader:
                     if (ComputeShaderCaptureWorker.IsSupported(_captureComputeShader))
-                        mCaptureWorker = new ComputeShaderCaptureWorker(_captureComputeShader);
+                        mCaptureWorker = new ComputeShaderCaptureWorker(Texture, _captureComputeShader);
                     else
                         mCaptureWorker = new MultithreadCaptureWorker(Texture, _captureThreadCount);
                     break;
