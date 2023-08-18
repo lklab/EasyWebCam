@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Text.RegularExpressions;
 using UnityEngine;
 
 #if !UNITY_EDITOR
@@ -31,42 +32,42 @@ namespace LKWebCam
         [SerializeField] private ComputeShader _captureComputeShader;
 
         /// <summary>
-        /// Whether it has been initialized
+        /// Indicates whether initialization has been completed.
         /// </summary>
         public bool IsInitialized { get; private set; } = false;
 
         /// <summary>
-        /// Whether camera permission is allowed
+        /// Indicates whether camera permission has been granted.
         /// </summary>
         public bool IsPermitted { get; private set; } = false;
 
         /// <summary>
-        /// Is WebCam playing
+        /// Indicates if the WebCam is currently active.
         /// </summary>
         public bool IsPlaying { get; private set; } = false;
 
         /// <summary>
-        /// WebCam resolution
+        /// Resolution of the WebCam.
         /// </summary>
         public Vector2Int Resolution { get { return _webCamResolution; } }
 
         /// <summary>
-        /// WebCam FPS
+        /// Frames per second (FPS) of the WebCam.
         /// </summary>
         public int FPS { get { return _webCamFPS; } }
 
         /// <summary>
-        /// Is WebCam front facing
+        /// Indicates if the WebCam is front-facing.
         /// </summary>
         public bool IsFrontFacing { get { return _useFrontFacing; } }
 
         /// <summary>
-        /// Horizontally flip the WebCam
+        /// Horizontally flip the WebCam.
         /// </summary>
         public bool FlipHorizontally { get; private set; }
 
         /// <summary>
-        /// Current WebCam texture
+        /// The current WebCam texture.
         /// </summary>
         public WebCamTexture Texture { get; private set; } = null;
 
@@ -87,7 +88,7 @@ namespace LKWebCam
         }
 
         /// <summary>
-        /// Initialize WebCamController
+        /// Initialize the WebCamController.
         /// </summary>
         public void Initialize()
         {
@@ -95,17 +96,17 @@ namespace LKWebCam
                 return;
             IsInitialized = true;
 
-            /* check permission */
+            /* Check camera permission */
             IsPermitted = CheckPermission();
 
-            /* clear viewport */
+            /* Clear the viewport */
             _viewport.ClearWebCamTexture();
         }
 
         /// <summary>
-        /// Request WebCam permission
+        /// Request permission to use the WebCam.
         /// </summary>
-        /// <param name="callback">Callback to receive permission result</param>
+        /// <param name="callback">Callback to receive the permission result.</param>
         public void RequestPermission(Action<Error> callback)
         {
             if (IsPermitted)
@@ -136,13 +137,11 @@ namespace LKWebCam
         }
 
         /// <summary>
-        /// Start WebCam
+        /// Start the WebCam with default settings.
         /// </summary>
-        /// <returns>
-        /// Error.Success when WebCam started successfully,
-        /// Error.Busy when WebCam has already started,
-        /// Error.NotSupported when no WebCam.
-        /// </returns>
+        /// <returns>Error.Success if the WebCam started successfully,
+        /// Error.Busy if the WebCam has already started,
+        /// Error.NotSupported if no WebCam is available.</returns>
         public Error StartWebCam()
         {
             if (!IsPermitted)
@@ -155,16 +154,32 @@ namespace LKWebCam
         }
 
         /// <summary>
-        /// Start WebCam
+        /// Start the WebCam with custom settings.
         /// </summary>
-        /// <param name="useFrontFacing">Whether to choose the front facing WebCam</param>
-        /// <param name="resolution">WebCam resolution</param>
-        /// <param name="fps">WebCam FPS</param>
-        /// <returns>
-        /// Error.Success when WebCam started successfully,
-        /// Error.Busy when WebCam has already started,
-        /// Error.NotSupported when no WebCam.
-        /// </returns>
+        /// <param name="useFrontFacing">Whether to use the front-facing WebCam.</param>
+        /// <returns>Error.Success if the WebCam started successfully,
+        /// Error.Busy if the WebCam has already started,
+        /// Error.NotSupported if no WebCam is available.</returns>
+        public Error StartWebCam(bool useFrontFacing)
+        {
+            if (!IsPermitted)
+                return Error.Permission;
+
+            if (IsPlaying)
+                return Error.Busy;
+
+            return StartWebCam(useFrontFacing, _webCamResolution, _webCamFPS);
+        }
+
+        /// <summary>
+        /// Start the WebCam with custom settings.
+        /// </summary>
+        /// <param name="useFrontFacing">Whether to use the front-facing WebCam.</param>
+        /// <param name="resolution">WebCam resolution.</param>
+        /// <param name="fps">WebCam FPS.</param>
+        /// <returns>Error.Success if the WebCam started successfully,
+        /// Error.Busy if the WebCam has already started,
+        /// Error.NotSupported if no WebCam is available.</returns>
         public Error StartWebCam(bool useFrontFacing, Vector2Int resolution, int fps)
         {
             if (!IsPermitted)
@@ -177,17 +192,15 @@ namespace LKWebCam
         }
 
         /// <summary>
-        /// Start WebCam
+        /// Start the WebCam with custom settings and horizontal flip option.
         /// </summary>
-        /// <param name="useFrontFacing">Whether to choose the front facing WebCam</param>
-        /// <param name="resolution">WebCam resolution</param>
-        /// <param name="fps">WebCam FPS</param>
-        /// <param name="flipHorizontally">Horizontally flip the WebCam</param>
-        /// <returns>
-        /// Error.Success when WebCam started successfully,
-        /// Error.Busy when WebCam has already started,
-        /// Error.NotSupported when no WebCam.
-        /// </returns>
+        /// <param name="useFrontFacing">Whether to use the front-facing WebCam.</param>
+        /// <param name="resolution">WebCam resolution.</param>
+        /// <param name="fps">WebCam FPS.</param>
+        /// <param name="flipHorizontally">Whether to horizontally flip the WebCam.</param>
+        /// <returns>Error.Success if the WebCam started successfully,
+        /// Error.Busy if the WebCam has already started,
+        /// Error.NotSupported if no WebCam is available.</returns>
         public Error StartWebCam(bool useFrontFacing, Vector2Int resolution, int fps, bool flipHorizontally)
         {
             if (!IsPermitted)
@@ -220,17 +233,40 @@ namespace LKWebCam
         }
 
         /// <summary>
-        /// Start WebCam
+        /// Start the WebCam with a specified device index and custom settings.
         /// </summary>
-        /// <param name="deviceIndex">Index of WebCamTexture.devices</param>
-        /// <param name="resolution">WebCam resolution</param>
-        /// <param name="fps">WebCam FPS</param>
-        /// <param name="flipHorizontally">Horizontally flip the WebCam</param>
-        /// <returns>
-        /// Error.Success when WebCam started successfully,
-        /// Error.Busy when WebCam has already started,
-        /// Error.NotSupported when no WebCam.
-        /// </returns>
+        /// <param name="deviceIndex">Index of the WebCamTexture.devices array.</param>
+        /// <param name="resolution">WebCam resolution.</param>
+        /// <param name="fps">WebCam FPS.</param>
+        /// <returns>Error.Success if the WebCam started successfully,
+        /// Error.Busy if the WebCam has already started,
+        /// Error.NotSupported if no WebCam is available.</returns>
+        public Error StartWebCam(int deviceIndex, Vector2Int resolution, int fps)
+        {
+            if (!IsPermitted)
+                return Error.Permission;
+
+            if (IsPlaying)
+                return Error.Busy;
+
+            WebCamDevice[] devices = WebCamTexture.devices;
+
+            if (devices == null || deviceIndex < 0 || deviceIndex >= devices.Length)
+                return Error.NotSupported;
+
+            return StartWebCam(devices[deviceIndex], resolution, fps, devices[deviceIndex].isFrontFacing);
+        }
+
+        /// <summary>
+        /// Start the WebCam with a specified device index and custom settings.
+        /// </summary>
+        /// <param name="deviceIndex">Index of the WebCamTexture.devices array.</param>
+        /// <param name="resolution">WebCam resolution.</param>
+        /// <param name="fps">WebCam FPS.</param>
+        /// <param name="flipHorizontally">Whether to horizontally flip the WebCam.</param>
+        /// <returns>Error.Success if the WebCam started successfully,
+        /// Error.Busy if the WebCam has already started,
+        /// Error.NotSupported if no WebCam is available.</returns>
         public Error StartWebCam(int deviceIndex, Vector2Int resolution, int fps, bool flipHorizontally)
         {
             if (!IsPermitted)
@@ -248,17 +284,15 @@ namespace LKWebCam
         }
 
         /// <summary>
-        /// Start WebCam
+        /// Start the WebCam with a specified device and custom settings.
         /// </summary>
-        /// <param name="device">WebCam device</param>
-        /// <param name="resolution">WebCam resolution</param>
-        /// <param name="fps">WebCam FPS</param>
-        /// <param name="flipHorizontally">Horizontally flip the WebCam</param>
-        /// <returns>
-        /// Error.Success when WebCam started successfully,
-        /// Error.Busy when WebCam has already started,
-        /// Error.NotSupported when no WebCam.
-        /// </returns>
+        /// <param name="device">The WebCam device to use.</param>
+        /// <param name="resolution">WebCam resolution.</param>
+        /// <param name="fps">WebCam FPS.</param>
+        /// <param name="flipHorizontally">Whether to horizontally flip the WebCam.</param>
+        /// <returns>Error.Success if the WebCam started successfully,
+        /// Error.Busy if the WebCam has already started,
+        /// Error.NotSupported if no WebCam is available.</returns>
         public Error StartWebCam(WebCamDevice device, Vector2Int resolution, int fps, bool flipHorizontally)
         {
             if (!IsPermitted)
@@ -267,11 +301,11 @@ namespace LKWebCam
             if (IsPlaying)
                 return Error.Busy;
 
-            /* make WebCam texture */
+            // Create the WebCam texture
             Texture = new WebCamTexture(device.name, resolution.x, resolution.y, fps);
             Texture.Play();
 
-            /* setup viewport */
+            // Set up the viewport
             _viewport.SetWebCamTexture(Texture);
 
             if (_autoResizeViewport)
@@ -281,8 +315,8 @@ namespace LKWebCam
                 _viewport.RectTr.localScale = new Vector3(-1.0f, 1.0f, 1.0f);
             else
                 _viewport.RectTr.localScale = Vector3.one;
-            
-            /* setup capture worker */
+
+            // Set up the capture worker
             switch (_captureMode)
             {
                 case CaptureMode.Multithread:
@@ -297,7 +331,7 @@ namespace LKWebCam
                     break;
             }
 
-            /* store variables */
+            // Store variables
             _webCamResolution = resolution;
             _webCamFPS = fps;
             _useFrontFacing = device.isFrontFacing;
@@ -308,7 +342,7 @@ namespace LKWebCam
         }
 
         /// <summary>
-        /// Stop WebCam
+        /// Stop the WebCam.
         /// </summary>
         public void StopWebCam()
         {
@@ -323,7 +357,7 @@ namespace LKWebCam
         }
 
         /// <summary>
-        /// Resize UI
+        /// Resize the UI to fit the WebCam view.
         /// </summary>
         public void Resize()
         {
@@ -334,87 +368,64 @@ namespace LKWebCam
         }
 
         /// <summary>
-        /// Taking a photo
+        /// Capture a photo using the device's camera.
         /// </summary>
-        /// <param name="rotationAngle">Angle to rotate the photo</param>
-        /// <param name="flipHorizontally">Horizontally flip the photo</param>
-        /// <param name="clip">Whether to clip only the part visible in the viewport</param>
-        /// <returns>Taken photo. Must Destroy() when no longer use it.</returns>
-        public CaptureResult<Texture2D> Capture(float rotationAngle, bool flipHorizontally, bool clip)
+        /// <param name="rotationAngle">Angle by which the photo should be rotated.</param>
+        /// <param name="flipHorizontally">Whether to horizontally flip the photo.</param>
+        /// <param name="clip">Whether to clip only the visible part in the viewport.</param>
+        /// <param name="info">CaptureInfo to reuse the texture object.</param>
+        /// <returns>Information about the captured photo. Remember to call Destroy() when no longer using it.</returns>
+        public CaptureInfo Capture(float rotationAngle, bool flipHorizontally, bool clip, CaptureInfo info = null)
         {
             if (!IsPlaying)
-                return CaptureResult<Texture2D>.Fail;
+                return CaptureInfo.NotPlaying;
 
-            return mCaptureWorker.Capture(rotationAngle, flipHorizontally, clip, _viewport.AspectRatio);
+            return mCaptureWorker.Capture(rotationAngle, flipHorizontally, clip, _viewport.AspectRatio, info);
         }
 
         /// <summary>
-        /// Taking a photo
+        /// Capture a photo using the device's camera.
         /// </summary>
-        /// <returns>Taken photo. Must Destroy() when no longer use it.</returns>
-        public CaptureResult<Texture2D> Capture()
+        /// <param name="info">CaptureInfo to reuse the texture object.</param>
+        /// <returns>Information about the captured photo. Remember to call Destroy() when no longer using it.</returns>
+        public CaptureInfo Capture(CaptureInfo info = null)
         {
-            return Capture(_viewport.WebCamProperties.videoRotationAngle, FlipHorizontally, true);
-        }
-
-        public CaptureResult<RenderTexture> Capture(RenderTexture texture, float rotationAngle, bool flipHorizontally, bool clip)
-        {
-            if (!IsPlaying)
-                return CaptureResult<RenderTexture>.Fail;
-
-            return mCaptureWorker.Capture(texture, rotationAngle, flipHorizontally, clip, _viewport.AspectRatio);
-        }
-
-        public CaptureResult<RenderTexture> Capture(RenderTexture texture)
-        {
-            return Capture(texture, _viewport.WebCamProperties.videoRotationAngle, FlipHorizontally, true);
+            return Capture(_viewport.WebCamProperties.videoRotationAngle, FlipHorizontally, true, info);
         }
 
         /// <summary>
-        /// Taking a photo (async)
+        /// Capture a photo using the device's camera asynchronously.
         /// </summary>
-        /// <param name="rotationAngle">Angle to rotate the photo</param>
-        /// <param name="flipHorizontally">Horizontally flip the photo</param>
-        /// <param name="clip">Whether to clip only the part visible in the viewport</param>
-        /// <param name="callback">Callback to get a photo. Must Destroy() when no longer use the photo.</param>
-        public void CaptureAsync(float rotationAngle, bool flipHorizontally, bool clip, System.Action<CaptureResult<Texture2D>> callback)
+        /// <param name="rotationAngle">Angle by which the photo should be rotated.</param>
+        /// <param name="flipHorizontally">Whether to horizontally flip the photo.</param>
+        /// <param name="clip">Whether to clip only the visible part in the viewport.</param>
+        /// <param name="onComplete">Callback to receive the captured photo info. Remember to call Destroy() when no longer using the photo.</param>
+        /// <param name="info">CaptureInfo to reuse the texture object.</param>
+        public void CaptureAsync(float rotationAngle, bool flipHorizontally, bool clip, Action<CaptureInfo> onComplete, CaptureInfo info = null)
         {
             if (!IsPlaying)
             {
-                callback?.Invoke(CaptureResult<Texture2D>.Fail);
+                onComplete?.Invoke(CaptureInfo.NotPlaying);
                 return;
             }
 
-            System.Func<CaptureResult<Texture2D>> waitFunc = mCaptureWorker.CaptureAsync(rotationAngle, flipHorizontally, clip, _viewport.AspectRatio);
-            StartCoroutine(WaitCaptureCoroutine(waitFunc, callback));
+            StartCoroutine(mCaptureWorker.CaptureAsync(rotationAngle, flipHorizontally, clip, _viewport.AspectRatio, info, onComplete));
         }
 
         /// <summary>
-        /// Taking a photo (async)
+        /// Capture a photo using the device's camera asynchronously.
         /// </summary>
-        /// <param name="callback">Callback to get a photo. Must Destroy() when no longer use the photo.</param>
-        public void CaptureAsync(System.Action<CaptureResult<Texture2D>> callback)
+        /// <param name="onComplete">Callback to receive the captured photo info. Remember to call Destroy() when no longer using the photo.</param>
+        /// <param name="info">CaptureInfo to reuse the texture object.</param>
+        public void CaptureAsync(Action<CaptureInfo> onComplete, CaptureInfo info = null)
         {
-            CaptureAsync(_viewport.WebCamProperties.videoRotationAngle, FlipHorizontally, true, callback);
+            CaptureAsync(_viewport.WebCamProperties.videoRotationAngle, FlipHorizontally, true, onComplete, info);
         }
 
-        public void CaptureAsync(RenderTexture texture, float rotationAngle, bool flipHorizontally, bool clip, System.Action<CaptureResult<RenderTexture>> callback)
-        {
-            if (!IsPlaying)
-            {
-                callback?.Invoke(CaptureResult<RenderTexture>.Fail);
-                return;
-            }
-
-            System.Func<CaptureResult<RenderTexture>> waitFunc = mCaptureWorker.CaptureAsync(texture, rotationAngle, flipHorizontally, clip, _viewport.AspectRatio);
-            StartCoroutine(WaitCaptureCoroutine(waitFunc, callback));
-        }
-
-        public void CaptureAsync(RenderTexture texture, System.Action<CaptureResult<RenderTexture>> callback)
-        {
-            CaptureAsync(texture, _viewport.WebCamProperties.videoRotationAngle, FlipHorizontally, true, callback);
-        }
-
+        /// <summary>
+        /// Check if a photo capture is in progress.
+        /// </summary>
+        /// <returns>True if a capture is in progress, otherwise false.</returns>
         public bool IsCaptureBusy()
         {
             if (!IsPlaying)
@@ -470,19 +481,6 @@ namespace LKWebCam
 #else
             return true;
 #endif
-        }
-
-        private IEnumerator WaitCaptureCoroutine<T>(System.Func<CaptureResult<T>> waitFunc, System.Action<CaptureResult<T>> callback) where T : Texture
-        {
-            CaptureResult<T> result = waitFunc();
-
-            while (result.state == CaptureState.Working)
-            {
-                yield return null;
-                result = waitFunc();
-            }
-
-            callback?.Invoke(result);
         }
     }
 }

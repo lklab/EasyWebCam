@@ -18,7 +18,7 @@ public class Sample : MonoBehaviour
     [SerializeField] private AspectRatioFitter _captureAspect;
     [SerializeField] private Button _closeCaptureButton;
 
-    private RenderTexture mCapturedRenderTexture = null;
+    private CaptureInfo mCaptureInfo = null;
     private Vector2 mViewportSize = Vector2.zero;
 
     private void Awake()
@@ -29,32 +29,34 @@ public class Sample : MonoBehaviour
         {
             if (_webCamController.IsCaptureBusy())
                 return;
-                
-            if (mViewportSize != _webCamController.Viewport.Size)
-            {
-                DestroyCapturedTexture();
-                mViewportSize = _webCamController.Viewport.Size;
-            }
 
-            _webCamController.CaptureAsync(mCapturedRenderTexture, (CaptureResult<RenderTexture> result) =>
+            _webCamController.CaptureAsync((CaptureInfo info) =>
             {
-                if (result.state != CaptureState.Success)
+                if (info.State != CaptureState.Success)
+                {
+                    mCaptureInfo?.Destroy();
+                    mCaptureInfo = null;
                     return;
+                }
 
-                mCapturedRenderTexture = result.texture;
-                _captureImage.texture = mCapturedRenderTexture;
-                _captureAspect.aspectRatio = (float)result.texture.width / result.texture.height;
+                mCaptureInfo = info;
+
+                RenderTexture texture = info.GetRenderTexture();
+                _captureImage.texture = texture;
+                _captureAspect.aspectRatio = (float)texture.width / texture.height;
 
                 _captureUiObject.SetActive(true);
-            });
+
+            }, mCaptureInfo);
         });
 
         _changeButton.onClick.AddListener(delegate
         {
             _webCamController.StopWebCam();
-            _webCamController.StartWebCam(!_webCamController.IsFrontFacing,
-                _webCamController.Resolution,
-                _webCamController.FPS);
+            WebCamController.Error error = _webCamController.StartWebCam(!_webCamController.IsFrontFacing);
+
+            if (error == WebCamController.Error.NotSupported)
+                StartAnyWebCam();
 
             DestroyCapturedTexture();
         });
@@ -71,7 +73,10 @@ public class Sample : MonoBehaviour
         _webCamController.RequestPermission((WebCamController.Error error) =>
         {
             if (error == WebCamController.Error.Success)
-                _webCamController.StartWebCam();
+                error = _webCamController.StartWebCam();
+
+            if (error == WebCamController.Error.NotSupported)
+                StartAnyWebCam();
         });
     }
 
@@ -82,11 +87,19 @@ public class Sample : MonoBehaviour
 
     private void DestroyCapturedTexture()
     {
-        if (mCapturedRenderTexture != null)
+        if (mCaptureInfo != null)
         {
             _captureImage.texture = null;
-            Destroy(mCapturedRenderTexture);
-            mCapturedRenderTexture = null;
+            mCaptureInfo.Destroy();
+            mCaptureInfo = null;
         }
+    }
+
+    private void StartAnyWebCam()
+    {
+        _webCamController.StartWebCam(
+            deviceIndex: 0,
+            resolution: _webCamController.Resolution,
+            fps: _webCamController.FPS);
     }
 }

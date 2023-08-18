@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Threading;
 using UnityEngine;
 
@@ -16,14 +17,6 @@ namespace LKWebCam
         /* thread control variables */
         private bool mIsBusy = false;
 
-        /* thread input contexts */
-        private Color32[] mInputBuffer;
-        private int[] mSlice;
-
-        /* thread output contexts */
-        private Color32[] mOutputBuffer;
-        private Vector2Int mOutputTextureSize;
-
         /* properties */
         public bool IsBusy { get { return mIsBusy; } }
 
@@ -33,182 +26,149 @@ namespace LKWebCam
             mThreadCount = threadCount;
         }
 
-        public CaptureResult<Texture2D> Capture(float rotationAngle, bool flipHorizontally, bool clip, float viewportAspect)
+        public CaptureInfo Capture(float rotationAngle, bool flipHorizontally, bool clip, float viewportAspect, CaptureInfo info)
         {
             if (mIsBusy)
-                return CaptureResult<Texture2D>.Busy;
+                return CaptureInfo.Busy;
 
-            Thread[] threads = RunInternal(rotationAngle, flipHorizontally, clip, viewportAspect);
+            ThreadContext context = RunInternal(mInputTexture, mThreadCount, rotationAngle, flipHorizontally, clip, viewportAspect);
 
-            for (int i = 0; i < threads.Length; i++)
-                threads[i].Join();
+            for (int i = 0; i < context.threads.Length; i++)
+                context.threads[i].Join();
 
-            Texture2D outputTexture = new Texture2D(mOutputTextureSize.x, mOutputTextureSize.y);
-            outputTexture.SetPixels32(mOutputBuffer);
-            outputTexture.Apply();
-            return new CaptureResult<Texture2D>(outputTexture);
-        }
-        
-        public CaptureResult<RenderTexture> Capture(RenderTexture texture, float rotationAngle, bool flipHorizontally, bool clip, float viewportAspect)
-        {
-            CaptureResult<Texture2D> result = Capture(rotationAngle, flipHorizontally, clip, viewportAspect);
-
-            if (result.state != CaptureState.Success)
-                return new CaptureResult<RenderTexture>(result.state);
-
-            if (texture == null)
-                texture = new RenderTexture(mOutputTextureSize.x, mOutputTextureSize.y, 0);
-            Graphics.Blit(result.texture, texture);
-            UnityEngine.Object.Destroy(result.texture);
-
-            return new CaptureResult<RenderTexture>(texture);
+            return GetCaptureInfoFromResult(context, info);
         }
 
-        public System.Func<CaptureResult<Texture2D>> CaptureAsync(float rotationAngle, bool flipHorizontally, bool clip, float viewportAspect)
+        public IEnumerator CaptureAsync(float rotationAngle, bool flipHorizontally, bool clip, float viewportAspect, CaptureInfo info, Action<CaptureInfo> onCompleted)
         {
             if (mIsBusy)
-                return delegate { return CaptureResult<Texture2D>.Busy; };
+            {
+                onCompleted?.Invoke(CaptureInfo.Busy);
+                yield break;
+            }
             mIsBusy = true;
 
-            Texture2D outputTexture = null;
-            Thread[] threads = RunInternal(rotationAngle, flipHorizontally, clip, viewportAspect);
+            ThreadContext context = RunInternal(mInputTexture, mThreadCount, rotationAngle, flipHorizontally, clip, viewportAspect);
 
-            return delegate
+            bool working = true;
+            while (working)
             {
-                if (outputTexture != null)
-                    return new CaptureResult<Texture2D>(outputTexture);
+                yield return null;
 
-                for (int i = 0; i < threads.Length; i++)
+                working = false;
+                for (int i = 0; i < context.threads.Length; i++)
                 {
-                    if (threads[i].IsAlive)
-                        return CaptureResult<Texture2D>.Working;
+                    if (context.threads[i].IsAlive)
+                    {
+                        working = true;
+                        break;
+                    }
                 }
+            }
 
-                for (int i = 0; i < threads.Length; i++)
-                    threads[i].Join();
+            for (int i = 0; i < context.threads.Length; i++)
+                context.threads[i].Join();
 
-                outputTexture = new Texture2D(mOutputTextureSize.x, mOutputTextureSize.y);
-                outputTexture.SetPixels32(mOutputBuffer);
-                outputTexture.Apply();
-
-                mIsBusy = false;
-                return new CaptureResult<Texture2D>(outputTexture);
-            };
+            mIsBusy = false;
+            onCompleted?.Invoke(GetCaptureInfoFromResult(context, info));
         }
-        
-        public System.Func<CaptureResult<RenderTexture>> CaptureAsync(RenderTexture texture, float rotationAngle, bool flipHorizontally, bool clip, float viewportAspect)
+
+        private class ThreadContext
         {
-            RenderTexture outputTexture = null;
+            public Thread[] threads;
 
-            System.Func<CaptureResult<Texture2D>> waitFunc = CaptureAsync(rotationAngle, flipHorizontally, clip, viewportAspect);
-            CaptureResult<Texture2D> result = waitFunc();
+            public Color32[] inputBuffer;
+            public Color32[] outputBuffer;
 
-            if (result.state != CaptureState.Working && result.state != CaptureState.Success)
-                return delegate { return new CaptureResult<RenderTexture>(result.state); };
-            
-            return delegate
-            {
-                if (outputTexture != null)
-                    return new CaptureResult<RenderTexture>(outputTexture);
+            public Vector2Int outputTextureSize;
 
-                CaptureResult<Texture2D> result = waitFunc();
-
-                if (result.state == CaptureState.Success)
-                {
-                    if (texture == null)
-                        texture = new RenderTexture(mOutputTextureSize.x, mOutputTextureSize.y, 0);
-                    outputTexture = texture;
-                    Graphics.Blit(result.texture, texture);
-                    UnityEngine.Object.Destroy(result.texture);
-
-                    return new CaptureResult<RenderTexture>(texture);
-                }
-                else
-                    return new CaptureResult<RenderTexture>(result.state);
-            };
+            public int[] slice;
         }
 
-        private Thread[] RunInternal(float rotationAngle, bool flipHorizontally, bool clip, float viewportAspect)
+        private CaptureInfo GetCaptureInfoFromResult(ThreadContext context, CaptureInfo info)
+        {
+            Texture2D capturedTexture;
+            if (info == null || !info.GetTextureSize().Equals(context.outputTextureSize))
+            {
+                info?.Destroy();
+                capturedTexture = new Texture2D(context.outputTextureSize.x, context.outputTextureSize.y);
+                info = new CaptureInfo(capturedTexture);
+            }
+            else
+                capturedTexture = info.GetTexture2D();
+
+            capturedTexture.SetPixels32(context.outputBuffer);
+            capturedTexture.Apply();
+            info.NotifyTexture2DIsUpdated();
+
+            return info;
+        }
+
+        private ThreadContext RunInternal(WebCamTexture inputTexture, int threadCount,
+            float rotationAngle, bool flipHorizontally, bool clip, float viewportAspect)
         {
             int rotationStep = Utils.GetRotationStep(rotationAngle);
-            int textureWidth = mInputTexture.width;
-            int textureHeight = mInputTexture.height;
-            int width = 0;
-            int height = 0;
-            int widthOffset = 0;
-            int heightOffset = 0;
 
-            switch (rotationStep)
-            {
-                case 0:
-                case 2:
-                    width = textureWidth;
-                    height = textureHeight;
-                    break;
-
-                case 1:
-                case 3:
-                    width = textureHeight;
-                    height = textureWidth;
-                    break;
-            }
-
+            Vector2Int clippingOffset;
             if (clip)
+                clippingOffset = Utils.GetClippingOffset(inputTexture, rotationStep, viewportAspect);
+            else
+                clippingOffset = Vector2Int.zero;
+
+            Vector2Int capturedTextureSize = Utils.GetCapturedTextureSize(inputTexture, rotationStep, clippingOffset);
+
+            int textureWidth = inputTexture.width;
+            int textureHeight = inputTexture.height;
+            int width = capturedTextureSize.x;
+            int height = capturedTextureSize.y;
+            int widthOffset = clippingOffset.x;
+            int heightOffset = clippingOffset.y;
+
+            ThreadContext context = new ThreadContext()
             {
-                float textureAspect = (float)width / height;
+                threads = new Thread[threadCount],
 
-                if (viewportAspect > textureAspect)
-                {
-                    int newHeight = (int)((float)width / viewportAspect);
-                    heightOffset = (height - newHeight) / 2;
-                    height = newHeight;
-                }
-                else
-                {
-                    int newWidth = (int)((float)height * viewportAspect);
-                    widthOffset = (width - newWidth) / 2;
-                    width = newWidth;
-                }
-            }
+                inputBuffer = inputTexture.GetPixels32(),
+                outputBuffer = new Color32[width * height],
 
-            mInputBuffer = mInputTexture.GetPixels32();
-            mOutputBuffer = new Color32[width * height];
-            mOutputTextureSize = new Vector2Int(width, height);
+                outputTextureSize = new Vector2Int(width, height),
 
-            Thread[] threads = new Thread[mThreadCount];
-            mSlice = GetSlice(height, mThreadCount);
+                slice = GetSlice(height, threadCount),
+            };
+
+            Thread[] threads = context.threads;
 
             if (!flipHorizontally)
             {
                 switch (rotationStep)
                 {
                     case 0:
-                        for (int th = 0; th < mThreadCount; th++)
+                        for (int th = 0; th < threadCount; th++)
                         {
                             int index = th;
                             threads[th] = new Thread(() =>
                             {
-                                int start = mSlice[index];
-                                int end = mSlice[index + 1];
+                                int start = context.slice[index];
+                                int end = context.slice[index + 1];
 
                                 for (int j = start; j < end; j++)
                                 {
                                     int jb = j * width;
                                     int c = widthOffset + (j + heightOffset) * textureWidth;
-                                    Array.Copy(mInputBuffer, c, mOutputBuffer, jb, width);
+                                    Array.Copy(context.inputBuffer, c, context.outputBuffer, jb, width);
                                 }
                             });
                         }
                         break;
 
                     case 1:
-                        for (int th = 0; th < mThreadCount; th++)
+                        for (int th = 0; th < threadCount; th++)
                         {
                             int index = th;
                             threads[th] = new Thread(() =>
                             {
-                                int start = mSlice[index];
-                                int end = mSlice[index + 1];
+                                int start = context.slice[index];
+                                int end = context.slice[index + 1];
 
                                 int[] iw = new int[width];
                                 for (int i = 0; i < width; i++)
@@ -217,42 +177,42 @@ namespace LKWebCam
                                 for (int j = start; j < end; j++)
                                 {
                                     int jb = j * width;
-                                    int c = (textureWidth - 1 - (j + heightOffset)) + widthOffset * textureWidth;
+                                    int c = (textureWidth - 1 - (j + widthOffset)) + heightOffset * textureWidth;
                                     for (int i = 0; i < width; i++)
-                                        mOutputBuffer[i + jb] = mInputBuffer[c + iw[i]];
+                                        context.outputBuffer[i + jb] = context.inputBuffer[c + iw[i]];
                                 }
                             });
                         }
                         break;
 
                     case 2:
-                        for (int th = 0; th < mThreadCount; th++)
+                        for (int th = 0; th < threadCount; th++)
                         {
                             int index = th;
                             threads[th] = new Thread(() =>
                             {
-                                int start = mSlice[index];
-                                int end = mSlice[index + 1];
+                                int start = context.slice[index];
+                                int end = context.slice[index + 1];
 
                                 for (int j = start; j < end; j++)
                                 {
                                     int jb = j * width;
                                     int c = textureWidth - 1 - widthOffset + (textureHeight - 1 - j - heightOffset) * textureWidth;
                                     for (int i = 0; i < width; i++)
-                                        mOutputBuffer[i + jb] = mInputBuffer[c - i];
+                                        context.outputBuffer[i + jb] = context.inputBuffer[c - i];
                                 }
                             });
                         }
                         break;
 
                     case 3:
-                        for (int th = 0; th < mThreadCount; th++)
+                        for (int th = 0; th < threadCount; th++)
                         {
                             int index = th;
                             threads[th] = new Thread(() =>
                             {
-                                int start = mSlice[index];
-                                int end = mSlice[index + 1];
+                                int start = context.slice[index];
+                                int end = context.slice[index + 1];
 
                                 int[] iw = new int[width];
                                 for (int i = 0; i < width; i++)
@@ -261,9 +221,9 @@ namespace LKWebCam
                                 for (int j = start; j < end; j++)
                                 {
                                     int jb = j * width;
-                                    int c = j + heightOffset + (textureHeight - 1 - widthOffset) * textureWidth;
+                                    int c = j + widthOffset + (textureHeight - 1 - heightOffset) * textureWidth;
                                     for (int i = 0; i < width; i++)
-                                        mOutputBuffer[i + jb] = mInputBuffer[c - iw[i]];
+                                        context.outputBuffer[i + jb] = context.inputBuffer[c - iw[i]];
                                 }
                             });
                         }
@@ -275,33 +235,33 @@ namespace LKWebCam
                 switch (rotationStep)
                 {
                     case 0:
-                        for (int th = 0; th < mThreadCount; th++)
+                        for (int th = 0; th < threadCount; th++)
                         {
                             int index = th;
                             threads[th] = new Thread(() =>
                             {
-                                int start = mSlice[index];
-                                int end = mSlice[index + 1];
+                                int start = context.slice[index];
+                                int end = context.slice[index + 1];
 
                                 for (int j = start; j < end; j++)
                                 {
                                     int jb = j * width;
                                     int c = textureWidth - 1 - widthOffset + (j + heightOffset) * textureWidth;
                                     for (int i = 0; i < width; i++)
-                                        mOutputBuffer[i + jb] = mInputBuffer[c - i];
+                                        context.outputBuffer[i + jb] = context.inputBuffer[c - i];
                                 }
                             });
                         }
                         break;
 
                     case 1:
-                        for (int th = 0; th < mThreadCount; th++)
+                        for (int th = 0; th < threadCount; th++)
                         {
                             int index = th;
                             threads[th] = new Thread(() =>
                             {
-                                int start = mSlice[index];
-                                int end = mSlice[index + 1];
+                                int start = context.slice[index];
+                                int end = context.slice[index + 1];
 
                                 int[] iw = new int[width];
                                 for (int i = 0; i < width; i++)
@@ -310,41 +270,41 @@ namespace LKWebCam
                                 for (int j = start; j < end; j++)
                                 {
                                     int jb = j * width;
-                                    int c = textureWidth - 1 - j - heightOffset + (textureHeight - 1 - widthOffset) * textureWidth;
+                                    int c = textureWidth - 1 - j - widthOffset + (textureHeight - 1 - heightOffset) * textureWidth;
                                     for (int i = 0; i < width; i++)
-                                        mOutputBuffer[i + jb] = mInputBuffer[c - iw[i]];
+                                        context.outputBuffer[i + jb] = context.inputBuffer[c - iw[i]];
                                 }
                             });
                         }
                         break;
 
                     case 2:
-                        for (int th = 0; th < mThreadCount; th++)
+                        for (int th = 0; th < threadCount; th++)
                         {
                             int index = th;
                             threads[th] = new Thread(() =>
                             {
-                                int start = mSlice[index];
-                                int end = mSlice[index + 1];
+                                int start = context.slice[index];
+                                int end = context.slice[index + 1];
 
                                 for (int j = start; j < end; j++)
                                 {
                                     int jb = j * width;
                                     int c = widthOffset + (textureHeight - 1 - (j + heightOffset)) * textureWidth;
-                                    Array.Copy(mInputBuffer, c, mOutputBuffer, jb, width);
+                                    Array.Copy(context.inputBuffer, c, context.outputBuffer, jb, width);
                                 }
                             });
                         }
                         break;
 
                     case 3:
-                        for (int th = 0; th < mThreadCount; th++)
+                        for (int th = 0; th < threadCount; th++)
                         {
                             int index = th;
                             threads[th] = new Thread(() =>
                             {
-                                int start = mSlice[index];
-                                int end = mSlice[index + 1];
+                                int start = context.slice[index];
+                                int end = context.slice[index + 1];
 
                                 int[] iw = new int[width];
                                 for (int i = 0; i < width; i++)
@@ -353,9 +313,9 @@ namespace LKWebCam
                                 for (int j = start; j < end; j++)
                                 {
                                     int jb = j * width;
-                                    int c = j + heightOffset + widthOffset * textureWidth;
+                                    int c = j + widthOffset + heightOffset * textureWidth;
                                     for (int i = 0; i < width; i++)
-                                        mOutputBuffer[i + jb] = mInputBuffer[c + iw[i]];
+                                        context.outputBuffer[i + jb] = context.inputBuffer[c + iw[i]];
                                 }
                             });
                         }
@@ -366,7 +326,7 @@ namespace LKWebCam
             for (int i = 0; i < threads.Length; i++)
                 threads[i].Start();
 
-            return threads;
+            return context;
         }
 
         private int[] GetSlice(int length, int count)

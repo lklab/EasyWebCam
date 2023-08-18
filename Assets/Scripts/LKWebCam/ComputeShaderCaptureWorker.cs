@@ -1,3 +1,7 @@
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 using UnityEngine;
 
 namespace LKWebCam
@@ -22,36 +26,15 @@ namespace LKWebCam
             mComputeShader = computeShader;
         }
 
-        public CaptureResult<Texture2D> Capture(float rotationAngle, bool flipHorizontally, bool clip, float viewportAspect)
+        public CaptureInfo Capture(float rotationAngle, bool flipHorizontally, bool clip, float viewportAspect, CaptureInfo info)
         {
-            RenderTexture capturedTexture = CaptureInternal(null, rotationAngle, flipHorizontally, clip, viewportAspect);
-
-            Texture2D texture = new Texture2D(capturedTexture.width, capturedTexture.height);
-            RenderTexture activeRenderTexture = RenderTexture.active;
-            RenderTexture.active = capturedTexture;
-            texture.ReadPixels(new Rect(0, 0, capturedTexture.width, capturedTexture.height), 0, 0);
-            texture.Apply();
-            RenderTexture.active = activeRenderTexture;
-
-            return new CaptureResult<Texture2D>(texture);
-        }
-        
-        public CaptureResult<RenderTexture> Capture(RenderTexture texture, float rotationAngle, bool flipHorizontally, bool clip, float viewportAspect)
-        {
-            texture = CaptureInternal(texture, rotationAngle, flipHorizontally, clip, viewportAspect);
-            return new CaptureResult<RenderTexture>(texture);
+            return CaptureInternal(rotationAngle, flipHorizontally, clip, viewportAspect, info);
         }
 
-        public System.Func<CaptureResult<Texture2D>> CaptureAsync(float rotationAngle, bool flipHorizontally, bool clip, float viewportAspect)
+        public IEnumerator CaptureAsync(float rotationAngle, bool flipHorizontally, bool clip, float viewportAspect, CaptureInfo info, Action<CaptureInfo> onCompleted)
         {
-            CaptureResult<Texture2D> result = Capture(rotationAngle, flipHorizontally, clip, viewportAspect);
-            return delegate { return result; };
-        }
-        
-        public System.Func<CaptureResult<RenderTexture>> CaptureAsync(RenderTexture texture, float rotationAngle, bool flipHorizontally, bool clip, float viewportAspect)
-        {
-            CaptureResult<RenderTexture> result = Capture(texture, rotationAngle, flipHorizontally, clip, viewportAspect);
-            return delegate { return result; };
+            onCompleted?.Invoke(CaptureInternal(rotationAngle, flipHorizontally, clip, viewportAspect, info));
+            yield break;
         }
 
         private int GetKernelIndex(ComputeShader computeShader, int rotationStep, bool flipHorizontally)
@@ -80,23 +63,37 @@ namespace LKWebCam
             return mComputeShader.FindKernel("TopLeft");
         }
 
-        private RenderTexture CaptureInternal(RenderTexture texture, float rotationAngle, bool flipHorizontally, bool clip, float viewportAspect)
+        private CaptureInfo CaptureInternal(float rotationAngle, bool flipHorizontally, bool clip, float viewportAspect, CaptureInfo info)
         {
             int rotationStep = Utils.GetRotationStep(rotationAngle);
-            Vector2Int capturedTextureSize = Utils.GetCapturedTextureSize(mInputTexture, rotationStep);
 
-            if (texture == null)
-                texture = new RenderTexture(capturedTextureSize.x, capturedTextureSize.y, 0);
-            texture.enableRandomWrite = true;
+            Vector2Int clippingOffset;
+            if (clip)
+                clippingOffset = Utils.GetClippingOffset(mInputTexture, rotationStep, viewportAspect);
+            else
+                clippingOffset = Vector2Int.zero;
+
+            Vector2Int capturedTextureSize = Utils.GetCapturedTextureSize(mInputTexture, rotationStep, clippingOffset);
+
+            RenderTexture capturedTexture;
+            if (info == null || !info.GetTextureSize().Equals(capturedTextureSize))
+            {
+                info?.Destroy();
+                capturedTexture = new RenderTexture(capturedTextureSize.x, capturedTextureSize.y, 0);
+                info = new CaptureInfo(capturedTexture);
+            }
+            else
+                capturedTexture = info.GetRenderTexture();
 
             int kernelIndex = GetKernelIndex(mComputeShader, rotationStep, flipHorizontally);
-            mComputeShader.SetTexture(kernelIndex, "_CapturedTexture", texture);
+            mComputeShader.SetTexture(kernelIndex, "_CapturedTexture", capturedTexture);
             mComputeShader.SetTexture(kernelIndex, "_WebCamTexture", mInputTexture);
-            mComputeShader.SetVector("_Rect", new Vector4(0.0f, 0.0f, mInputTexture.width, mInputTexture.height));
+            mComputeShader.SetVector("_Rect", new Vector4(clippingOffset.x, clippingOffset.y, mInputTexture.width, mInputTexture.height));
 
-            mComputeShader.Dispatch(kernelIndex, texture.width / 8, texture.height / 8, 1);
+            mComputeShader.Dispatch(kernelIndex, capturedTexture.width / 8, capturedTexture.height / 8, 1);
 
-            return texture;
+            info.NotifyRenderTextureIsUpdated();
+            return info;
         }
     }
 }

@@ -30,7 +30,7 @@ public class Test : MonoBehaviour
         new CaptureOption(270.0f, true),
     };
 
-    private Texture2D[] mCurrentTextures = null;
+    private CaptureInfo[] mCurrentCaptureInfos = null;
 
     private void Awake()
     {
@@ -43,22 +43,23 @@ public class Test : MonoBehaviour
 
             DestroyCapturedTextures();
 
-            mCurrentTextures = new Texture2D[8];
+            mCurrentCaptureInfos = new CaptureInfo[mCaptureOptions.Length];
 
             for (int i = 0; i < 8; i++)
             {
                 CaptureOption o = mCaptureOptions[i];
-                CaptureResult<Texture2D> result = _webCamController.Capture(o.rotationAngle, o.flipHorizontally, false);
+                CaptureInfo info = _webCamController.Capture(o.rotationAngle, o.flipHorizontally, false);
 
-                if (result.state == CaptureState.Success)
+                if (info.State == CaptureState.Success)
                 {
-                    mCurrentTextures[i] = result.texture;
-                    _captureImages[i].texture = result.texture;
-                    _captureAspects[i].aspectRatio = (float)result.texture.width / result.texture.height;
+                    mCurrentCaptureInfos[i] = info;
+                    Texture2D texture = info.GetTexture2D();
+                    _captureImages[i].texture = texture;
+                    _captureAspects[i].aspectRatio = (float)texture.width / texture.height;
                 }
                 else
                 {
-                    mCurrentTextures[i] = null;
+                    mCurrentCaptureInfos[i] = null;
                     _captureImages[i].texture = null;
                 }
             }
@@ -99,11 +100,11 @@ public class Test : MonoBehaviour
 
     private void DestroyCapturedTextures()
     {
-        if (mCurrentTextures != null)
+        if (mCurrentCaptureInfos != null)
         {
-            for (int i = 0; i < mCurrentTextures.Length; i++)
-                Destroy(mCurrentTextures[i]);
-            mCurrentTextures = null;
+            for (int i = 0; i < mCurrentCaptureInfos.Length; i++)
+                mCurrentCaptureInfos[i]?.Destroy();
+            mCurrentCaptureInfos = null;
         }
     }
 
