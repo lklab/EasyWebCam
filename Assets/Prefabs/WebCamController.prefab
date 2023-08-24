@@ -55,7 +55,7 @@ MonoBehaviour:
   _webCamFPS: 60
   _useFrontFacing: 1
   _autoResizeViewport: 1
-  _captureMode: 0
+  _captureMode: 1
   _captureThreadCount: 4
   _captureComputeShader: {fileID: 7200000, guid: 0f4f1e86c91e4354facbad0c5d018602, type: 3}
 --- !u!1 &3957856480394243454

@@ -63,6 +63,7 @@ namespace LKWebCam
             State = CaptureState.Success;
             mTexture2D = null;
             mRenderTexture = texture;
+            mRenderTexture.format = RenderTextureFormat.ARGBFloat;
             mRenderTexture.enableRandomWrite = true;
         }
 
@@ -95,7 +96,7 @@ namespace LKWebCam
 
             if (mRenderTexture == null)
             {
-                mRenderTexture = new RenderTexture(mTexture2D.width, mTexture2D.height, 0);
+                mRenderTexture = new RenderTexture(mTexture2D.width, mTexture2D.height, 0, RenderTextureFormat.ARGBFloat);
                 mRenderTexture.enableRandomWrite = true;
                 NotifyTexture2DIsUpdated();
             }

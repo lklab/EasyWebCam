@@ -79,7 +79,7 @@ namespace LKWebCam
             if (info == null || !info.GetTextureSize().Equals(capturedTextureSize))
             {
                 info?.Destroy();
-                capturedTexture = new RenderTexture(capturedTextureSize.x, capturedTextureSize.y, 0);
+                capturedTexture = new RenderTexture(capturedTextureSize.x, capturedTextureSize.y, 0, RenderTextureFormat.ARGBFloat);
                 info = new CaptureInfo(capturedTexture);
             }
             else

@@ -12,11 +12,17 @@ Texture2D<float4> _WebCamTexture;
 SamplerState linearClampSampler;
 float4 _Rect;
 
+float4 sample(float2 uv)
+{
+    float4 color = _WebCamTexture.SampleLevel(linearClampSampler, uv / _Rect.zw, 0);
+    return color;
+}
+
 [numthreads(8,8,1)]
 void TopLeft (uint3 id : SV_DispatchThreadID)
 {
     float2 uv = id.xy + _Rect.xy;
-    _CapturedTexture[id.xy] = _WebCamTexture.SampleLevel(linearClampSampler, uv / _Rect.zw, 0);
+    _CapturedTexture[id.xy] = sample(uv);
 }
 
 [numthreads(8,8,1)]
@@ -25,7 +31,7 @@ void RightTop (uint3 id : SV_DispatchThreadID)
     float2 uv;
     uv.x = _Rect.z - id.y - _Rect.x - 1;
     uv.y = id.x + _Rect.y;
-    _CapturedTexture[id.xy] = _WebCamTexture.SampleLevel(linearClampSampler, uv / _Rect.zw, 0);
+    _CapturedTexture[id.xy] = sample(uv);
 }
 
 [numthreads(8,8,1)]
@@ -34,7 +40,7 @@ void BottomRight (uint3 id : SV_DispatchThreadID)
     float2 uv;
     uv.x = _Rect.z - id.x - _Rect.x - 1;
     uv.y = _Rect.w - id.y - _Rect.y - 1;
-    _CapturedTexture[id.xy] = _WebCamTexture.SampleLevel(linearClampSampler, uv / _Rect.zw, 0);
+    _CapturedTexture[id.xy] = sample(uv);
 }
 
 [numthreads(8,8,1)]
@@ -43,7 +49,7 @@ void LeftBottom (uint3 id : SV_DispatchThreadID)
     float2 uv;
     uv.x = id.y + _Rect.x;
     uv.y = _Rect.w - id.x - _Rect.y - 1;
-    _CapturedTexture[id.xy] = _WebCamTexture.SampleLevel(linearClampSampler, uv / _Rect.zw, 0);
+    _CapturedTexture[id.xy] = sample(uv);
 }
 
 [numthreads(8,8,1)]
@@ -51,7 +57,7 @@ void TopRight (uint3 id : SV_DispatchThreadID)
 {
     float2 uv = id.xy + _Rect.xy;
     uv.x = _Rect.z - uv.x - 1;
-    _CapturedTexture[id.xy] = _WebCamTexture.SampleLevel(linearClampSampler, uv / _Rect.zw, 0);
+    _CapturedTexture[id.xy] = sample(uv);
 }
 
 [numthreads(8,8,1)]
@@ -60,7 +66,7 @@ void LeftTop (uint3 id : SV_DispatchThreadID)
     float2 uv;
     uv.x = _Rect.z - id.y - _Rect.x - 1;
     uv.y = _Rect.w - id.x - _Rect.y - 1;
-    _CapturedTexture[id.xy] = _WebCamTexture.SampleLevel(linearClampSampler, uv / _Rect.zw, 0);
+    _CapturedTexture[id.xy] = sample(uv);
 }
 
 [numthreads(8,8,1)]
@@ -69,12 +75,12 @@ void BottomLeft (uint3 id : SV_DispatchThreadID)
     float2 uv;
     uv.x = id.x + _Rect.x;
     uv.y = _Rect.w - id.y - _Rect.y - 1;
-    _CapturedTexture[id.xy] = _WebCamTexture.SampleLevel(linearClampSampler, uv / _Rect.zw, 0);
+    _CapturedTexture[id.xy] = sample(uv);
 }
 
 [numthreads(8,8,1)]
 void RightBottom (uint3 id : SV_DispatchThreadID)
 {
     float2 uv = id.yx + _Rect.xy;
-    _CapturedTexture[id.xy] = _WebCamTexture.SampleLevel(linearClampSampler, uv / _Rect.zw, 0);
+    _CapturedTexture[id.xy] = sample(uv);
 }
