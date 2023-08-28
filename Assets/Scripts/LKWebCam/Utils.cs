@@ -31,7 +31,7 @@ namespace LKWebCam
             int inputWidth = inputTexture.width;
             int inputHeight = inputTexture.height;
 
-            float inputAspect = inputWidth / inputHeight;
+            float inputAspect = (float)inputWidth / inputHeight;
 
             if (rotationStep % 2 != 0)
                 outputAspect = 1.0f / outputAspect;
