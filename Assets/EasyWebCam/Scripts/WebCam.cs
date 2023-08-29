@@ -21,13 +21,13 @@ namespace EasyWebCam
         [SerializeField] private Viewport _viewport;
 
         [Header("WebCam settings")]
-        [SerializeField] private Vector2Int _webCamResolution = new Vector2Int(1280, 720);
+        [SerializeField] private Vector2Int _webCamResolution = new Vector2Int(1920, 1080);
         [SerializeField] private int _webCamFPS = 60;
         [SerializeField] private bool _useFrontFacing = true;
         [SerializeField] private bool _autoResizeViewport = true;
 
         [Header("Capture settings")]
-        [SerializeField] private CaptureMode _captureMode = CaptureMode.Multithread;
+        [SerializeField] private CaptureMode _captureMode = CaptureMode.ComputeShader;
         [SerializeField] private int _captureThreadCount = 4;
         [SerializeField] private ComputeShader _captureComputeShader;
 
