@@ -1,7 +1,7 @@
 using UnityEngine;
 using UnityEngine.UI;
 
-namespace LKWebCam
+namespace EasyWebCam
 {
     public class Viewport : MonoBehaviour
     {

@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using UnityEngine;
 
-namespace LKWebCam
+namespace EasyWebCam
 {
     public class ComputeShaderCaptureWorker : ICaptureWorker
     {
@@ -74,16 +74,17 @@ namespace LKWebCam
                 clippingOffset = Vector2Int.zero;
 
             Vector2Int capturedTextureSize = Utils.GetCapturedTextureSize(mInputTexture, rotationStep, clippingOffset);
+            int width = capturedTextureSize.x;
+            int height = capturedTextureSize.y;
 
             RenderTexture capturedTexture;
-            if (info == null || !info.GetTextureSize().Equals(capturedTextureSize))
+            if (info == null || info.Width != width || info.Height != height || info.Format != Format.Half)
             {
                 info?.Destroy();
-                capturedTexture = new RenderTexture(capturedTextureSize.x, capturedTextureSize.y, 0, RenderTextureFormat.ARGBFloat);
-                info = new CaptureInfo(capturedTexture);
+                info = new CaptureInfo(width, height, Format.Half);
             }
-            else
-                capturedTexture = info.GetRenderTexture();
+
+            info.GetRenderTextureRaw(out capturedTexture);
 
             int kernelIndex = GetKernelIndex(mComputeShader, rotationStep, flipHorizontally);
             mComputeShader.SetTexture(kernelIndex, "_CapturedTexture", capturedTexture);

@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace LKWebCam
+namespace EasyWebCam
 {
     public static class Utils
     {

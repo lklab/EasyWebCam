@@ -9,9 +9,9 @@ using UnityEngine.Android;
 #endif
 #endif
 
-namespace LKWebCam
+namespace EasyWebCam
 {
-    public class WebCamController : MonoBehaviour
+    public class WebCam : MonoBehaviour
     {
         public enum Error { Success, Disabled, NotSupported, Permission, Busy }
 

@@ -3,12 +3,12 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
-using LKWebCam;
+using EasyWebCam;
 
 public class Test : MonoBehaviour
 {
     [Header("WebCam UI")]
-    [SerializeField] private WebCamController _webCamController;
+    [SerializeField] private WebCam _webCam;
     [SerializeField] private Button _captureButton;
     [SerializeField] private Button _changeButton;
 
@@ -38,7 +38,7 @@ public class Test : MonoBehaviour
 
         _captureButton.onClick.AddListener(delegate
         {
-            if (_webCamController.IsCaptureBusy())
+            if (_webCam.IsCaptureBusy())
                 return;
 
             DestroyCapturedTextures();
@@ -48,7 +48,7 @@ public class Test : MonoBehaviour
             for (int i = 0; i < 8; i++)
             {
                 CaptureOption o = mCaptureOptions[i];
-                CaptureInfo info = _webCamController.Capture(o.rotationAngle, o.flipHorizontally, false);
+                CaptureInfo info = _webCam.Capture(o.rotationAngle, o.flipHorizontally, false);
 
                 if (info.State == CaptureState.Success)
                 {
@@ -69,10 +69,10 @@ public class Test : MonoBehaviour
 
         _changeButton.onClick.AddListener(delegate
         {
-            _webCamController.StopWebCam();
-            _webCamController.StartWebCam(!_webCamController.IsFrontFacing,
-                _webCamController.Resolution,
-                _webCamController.FPS);
+            _webCam.StopWebCam();
+            _webCam.StartWebCam(!_webCam.IsFrontFacing,
+                _webCam.Resolution,
+                _webCam.FPS);
 
             DestroyCapturedTextures();
         });
@@ -85,11 +85,11 @@ public class Test : MonoBehaviour
 
     private void Start()
     {
-        _webCamController.Initialize();
-        _webCamController.RequestPermission((WebCamController.Error error) =>
+        _webCam.Initialize();
+        _webCam.RequestPermission((WebCam.Error error) =>
         {
-            if (error == WebCamController.Error.Success)
-                _webCamController.StartWebCam();
+            if (error == WebCam.Error.Success)
+                _webCam.StartWebCam();
         });
     }
 

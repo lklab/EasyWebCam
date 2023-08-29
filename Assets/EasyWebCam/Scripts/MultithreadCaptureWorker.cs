@@ -3,7 +3,7 @@ using System.Collections;
 using System.Threading;
 using UnityEngine;
 
-namespace LKWebCam
+namespace EasyWebCam
 {
     /// <summary>
     /// Class that rotates and mirrors the captured image according to the webcam orientation.
@@ -88,14 +88,16 @@ namespace LKWebCam
         private CaptureInfo GetCaptureInfoFromResult(ThreadContext context, CaptureInfo info)
         {
             Texture2D capturedTexture;
-            if (info == null || !info.GetTextureSize().Equals(context.outputTextureSize))
+            int width = context.outputTextureSize.x;
+            int height = context.outputTextureSize.y;
+
+            if (info == null || info.Width != width || info.Height != height)
             {
                 info?.Destroy();
-                capturedTexture = new Texture2D(context.outputTextureSize.x, context.outputTextureSize.y);
-                info = new CaptureInfo(capturedTexture);
+                info = new CaptureInfo(width, height, Format.Default);
             }
-            else
-                capturedTexture = info.GetTexture2D();
+
+            info.GetTexture2DRaw(out capturedTexture);
 
             capturedTexture.SetPixels32(context.outputBuffer);
             capturedTexture.Apply();

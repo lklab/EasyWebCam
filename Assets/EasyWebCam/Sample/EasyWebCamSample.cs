@@ -3,12 +3,12 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
-using LKWebCam;
+using EasyWebCam;
 
-public class Sample : MonoBehaviour
+public class EasyWebCamSample : MonoBehaviour
 {
     [Header("WebCam UI")]
-    [SerializeField] private WebCamController _webCamController;
+    [SerializeField] private WebCam _webCam;
     [SerializeField] private Button _captureButton;
     [SerializeField] private Button _changeButton;
 
@@ -27,10 +27,10 @@ public class Sample : MonoBehaviour
 
         _captureButton.onClick.AddListener(delegate
         {
-            if (_webCamController.IsCaptureBusy())
+            if (_webCam.IsCaptureBusy())
                 return;
 
-            _webCamController.CaptureAsync((CaptureInfo info) =>
+            _webCam.CaptureAsync((CaptureInfo info) =>
             {
                 if (info.State != CaptureState.Success)
                 {
@@ -52,10 +52,10 @@ public class Sample : MonoBehaviour
 
         _changeButton.onClick.AddListener(delegate
         {
-            _webCamController.StopWebCam();
-            WebCamController.Error error = _webCamController.StartWebCam(!_webCamController.IsFrontFacing);
+            _webCam.StopWebCam();
+            WebCam.Error error = _webCam.StartWebCam(!_webCam.IsFrontFacing);
 
-            if (error == WebCamController.Error.NotSupported)
+            if (error == WebCam.Error.NotSupported)
                 StartAnyWebCam();
 
             DestroyCapturedTexture();
@@ -69,13 +69,13 @@ public class Sample : MonoBehaviour
 
     private void Start()
     {
-        _webCamController.Initialize();
-        _webCamController.RequestPermission((WebCamController.Error error) =>
+        _webCam.Initialize();
+        _webCam.RequestPermission((WebCam.Error error) =>
         {
-            if (error == WebCamController.Error.Success)
-                error = _webCamController.StartWebCam();
+            if (error == WebCam.Error.Success)
+                error = _webCam.StartWebCam();
 
-            if (error == WebCamController.Error.NotSupported)
+            if (error == WebCam.Error.NotSupported)
                 StartAnyWebCam();
         });
     }
@@ -97,9 +97,9 @@ public class Sample : MonoBehaviour
 
     private void StartAnyWebCam()
     {
-        _webCamController.StartWebCam(
+        _webCam.StartWebCam(
             deviceIndex: 0,
-            resolution: _webCamController.Resolution,
-            fps: _webCamController.FPS);
+            resolution: _webCam.Resolution,
+            fps: _webCam.FPS);
     }
 }
