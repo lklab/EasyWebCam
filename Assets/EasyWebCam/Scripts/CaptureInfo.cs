@@ -198,10 +198,15 @@ namespace EasyWebCam
         /// <returns>The captured RenderTexture.</returns>
         public RenderTexture GetRenderTexture()
         {
+#if UNITY_EDITOR && UNITY_WEBGL
+            Debug.LogError("Capturing with RenderTexture is not possible in WebGL. Use the GetTexture2D() function instead.");
+            return null;
+#else
             if (GetRenderTextureRaw(out RenderTexture texture))
                 NotifyTexture2DIsUpdated();
 
             return texture;
+#endif
         }
 
         /// <summary>

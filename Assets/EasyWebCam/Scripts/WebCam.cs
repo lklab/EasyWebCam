@@ -316,18 +316,32 @@ namespace EasyWebCam
                 _viewport.RectTr.localScale = Vector3.one;
 
             // Set up the capture worker
-            switch (_captureMode)
+            if (Application.platform == RuntimePlatform.WebGLPlayer)
             {
-                case CaptureMode.Multithread:
-                    mCaptureWorker = new MultithreadCaptureWorker(Texture, _captureThreadCount);
-                    break;
+                mCaptureWorker = new SinglethreadCaptureWorker(Texture);
+            }
+            else
+            {
+                try
+                {
+                    switch (_captureMode)
+                    {
+                        case CaptureMode.Multithread:
+                            mCaptureWorker = new MultithreadCaptureWorker(Texture, _captureThreadCount);
+                            break;
 
-                case CaptureMode.ComputeShader:
-                    if (ComputeShaderCaptureWorker.IsSupported(_captureComputeShader))
-                        mCaptureWorker = new ComputeShaderCaptureWorker(Texture, _captureComputeShader);
-                    else
-                        mCaptureWorker = new MultithreadCaptureWorker(Texture, _captureThreadCount);
-                    break;
+                        case CaptureMode.ComputeShader:
+                            if (ComputeShaderCaptureWorker.IsSupported(_captureComputeShader))
+                                mCaptureWorker = new ComputeShaderCaptureWorker(Texture, _captureComputeShader);
+                            else
+                                mCaptureWorker = new MultithreadCaptureWorker(Texture, _captureThreadCount);
+                            break;
+                    }
+                }
+                catch
+                {
+                    mCaptureWorker = new SinglethreadCaptureWorker(Texture);
+                }
             }
 
             // Store variables
@@ -449,7 +463,7 @@ namespace EasyWebCam
             permissionCallbacks.PermissionGranted += (string msg) => callback?.Invoke(Error.Success);
 
             Permission.RequestUserPermission(Permission.Camera, permissionCallbacks);
-#elif UNITY_IOS
+#else
 		    if (Application.HasUserAuthorization(UserAuthorization.WebCam))
 		    {
 			    callback?.Invoke(Error.Success);
@@ -474,7 +488,7 @@ namespace EasyWebCam
 #if !UNITY_EDITOR
 #if UNITY_ANDROID
             return Permission.HasUserAuthorizedPermission(Permission.Camera);
-#elif UNITY_IOS
+#else
             return Application.HasUserAuthorization(UserAuthorization.WebCam);
 #endif
 #else

@@ -39,7 +39,7 @@ public class EasyWebCamSample : MonoBehaviour
 
                 mCaptureInfo = info;
 
-                RenderTexture texture = info.GetRenderTexture();
+                Texture2D texture = info.GetTexture2D();
                 _captureImage.texture = texture;
                 _captureAspect.aspectRatio = (float)texture.width / texture.height;
 
