@@ -89,7 +89,7 @@ namespace EasyWebCam
             mComputeShader.SetTexture(kernelIndex, "_WebCamTexture", mInputTexture);
             mComputeShader.SetVector("_Rect", new Vector4(clippingOffset.x, clippingOffset.y, mInputTexture.width, mInputTexture.height));
 
-            mComputeShader.Dispatch(kernelIndex, capturedTexture.width / 8, capturedTexture.height / 8, 1);
+            mComputeShader.Dispatch(kernelIndex, (capturedTexture.width + 7) / 8, (capturedTexture.height + 7) / 8, 1);
 
             info.NotifyRenderTextureIsUpdated();
             return info;
