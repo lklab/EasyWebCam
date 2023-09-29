@@ -1,3 +1,4 @@
+using System.Collections;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -15,6 +16,9 @@ public class EasyWebCamSample : MonoBehaviour
     [SerializeField] private RawImage _captureImage;
     [SerializeField] private AspectRatioFitter _captureAspect;
     [SerializeField] private Button _closeCaptureButton;
+
+    [Header("Common UI")]
+    [SerializeField] private Text _permissionText;
 
     private CaptureInfo mCaptureInfo = null;
     private Vector2 mViewportSize = Vector2.zero;
@@ -65,11 +69,16 @@ public class EasyWebCamSample : MonoBehaviour
         });
     }
 
-    private void Start()
+    private IEnumerator Start()
     {
-        _webCam.Initialize();
+        _permissionText.text = "Requesting camera permission...";
+
+        yield return null;
+
         _webCam.RequestPermission((WebCam.Error error) =>
         {
+            _permissionText.text = $"Permission response: {error}";
+
             if (error == WebCam.Error.Success)
                 error = _webCam.StartWebCam();
 
