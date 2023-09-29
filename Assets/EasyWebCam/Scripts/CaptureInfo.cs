@@ -149,15 +149,22 @@ namespace EasyWebCam
 
         private Texture2D CreateTexture2D()
         {
+            Texture2D texture;
+
             switch (Format)
             {
                 case Format.Default:
                 default:
-                    return new Texture2D(Width, Height);
+                    texture = new Texture2D(Width, Height);
+                    break;
 
                 case Format.Half:
-                    return new Texture2D(Width, Height, TextureFormat.RGBAHalf, false);
+                    texture = new Texture2D(Width, Height, TextureFormat.RGBAHalf, false);
+                    break;
             }
+            texture.wrapMode = TextureWrapMode.Clamp;
+
+            return texture;
         }
 
         private RenderTexture CreateRenderTexture()
@@ -176,6 +183,7 @@ namespace EasyWebCam
                     break;
             }
             renderTexture.enableRandomWrite = true;
+            renderTexture.wrapMode = TextureWrapMode.Clamp;
 
             return renderTexture;
         }

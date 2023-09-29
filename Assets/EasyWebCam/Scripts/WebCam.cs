@@ -302,6 +302,7 @@ namespace EasyWebCam
 
             // Create the WebCam texture
             Texture = new WebCamTexture(device.name, resolution.x, resolution.y, fps);
+            Texture.wrapMode = TextureWrapMode.Clamp;
             Texture.Play();
 
             // Set up the viewport
