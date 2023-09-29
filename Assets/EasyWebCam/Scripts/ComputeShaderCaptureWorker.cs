@@ -24,12 +24,12 @@ namespace EasyWebCam
             mComputeShader = computeShader;
         }
 
-        public CaptureInfo Capture(float rotationAngle, bool flipHorizontally, bool clip, float viewportAspect, CaptureInfo info)
+        public CaptureInfo Capture(int rotationAngle, bool flipHorizontally, bool clip, float viewportAspect, CaptureInfo info)
         {
             return CaptureInternal(rotationAngle, flipHorizontally, clip, viewportAspect, info);
         }
 
-        public IEnumerator CaptureAsync(float rotationAngle, bool flipHorizontally, bool clip, float viewportAspect, CaptureInfo info, Action<CaptureInfo> onCompleted)
+        public IEnumerator CaptureAsync(int rotationAngle, bool flipHorizontally, bool clip, float viewportAspect, CaptureInfo info, Action<CaptureInfo> onCompleted)
         {
             onCompleted?.Invoke(CaptureInternal(rotationAngle, flipHorizontally, clip, viewportAspect, info));
             yield break;
@@ -61,7 +61,7 @@ namespace EasyWebCam
             return mComputeShader.FindKernel("TopLeft");
         }
 
-        private CaptureInfo CaptureInternal(float rotationAngle, bool flipHorizontally, bool clip, float viewportAspect, CaptureInfo info)
+        private CaptureInfo CaptureInternal(int rotationAngle, bool flipHorizontally, bool clip, float viewportAspect, CaptureInfo info)
         {
             int rotationStep = Utils.GetRotationStep(rotationAngle);
 

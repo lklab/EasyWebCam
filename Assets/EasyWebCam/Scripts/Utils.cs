@@ -4,7 +4,7 @@ namespace EasyWebCam
 {
     public static class Utils
     {
-        public static int GetRotationStep(float rotationAngle)
+        public static int GetRotationStep(int rotationAngle)
         {
             int rotationStep = Mathf.RoundToInt(rotationAngle / 90.0f);
             if (rotationStep >= 4)
@@ -49,5 +49,27 @@ namespace EasyWebCam
                 return new Vector2Int(offsetX, 0);
             }
         }
+
+        public static TextureOrientation GetTextureOrientation(bool flipVertically, int rotationAngle, bool flipHorizontally)
+        {
+            if (flipVertically)
+            {
+                rotationAngle = 180 - rotationAngle;
+                if (rotationAngle < 0)
+                    rotationAngle += 360;
+            }
+
+            return new TextureOrientation()
+            {
+                rotationAngle = rotationAngle,
+                flipHorizontally = flipVertically ^ flipHorizontally,
+            };
+        }
+    }
+
+    public struct TextureOrientation
+    {
+        public int rotationAngle;
+        public bool flipHorizontally;
     }
 }

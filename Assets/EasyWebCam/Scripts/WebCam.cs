@@ -389,7 +389,7 @@ namespace EasyWebCam
         /// <param name="clip">Whether to clip only the visible part in the viewport.</param>
         /// <param name="info">CaptureInfo to reuse the texture object.</param>
         /// <returns>Information about the captured photo. Remember to call Destroy() when no longer using it.</returns>
-        public CaptureInfo Capture(float rotationAngle, bool flipHorizontally, bool clip, CaptureInfo info = null)
+        public CaptureInfo Capture(int rotationAngle, bool flipHorizontally, bool clip, CaptureInfo info = null)
         {
             if (!IsPlaying)
                 return CaptureInfo.NotPlaying;
@@ -404,7 +404,8 @@ namespace EasyWebCam
         /// <returns>Information about the captured photo. Remember to call Destroy() when no longer using it.</returns>
         public CaptureInfo Capture(CaptureInfo info = null)
         {
-            return Capture(_viewport.WebCamProperties.videoRotationAngle, FlipHorizontally, true, info);
+            TextureOrientation orientation = GetTextureOrientation();
+            return Capture(orientation.rotationAngle, orientation.flipHorizontally, true, info);
         }
 
         /// <summary>
@@ -415,7 +416,7 @@ namespace EasyWebCam
         /// <param name="clip">Whether to clip only the visible part in the viewport.</param>
         /// <param name="onComplete">Callback to receive the captured photo info. Remember to call Destroy() when no longer using the photo.</param>
         /// <param name="info">CaptureInfo to reuse the texture object.</param>
-        public void CaptureAsync(float rotationAngle, bool flipHorizontally, bool clip, Action<CaptureInfo> onComplete, CaptureInfo info = null)
+        public void CaptureAsync(int rotationAngle, bool flipHorizontally, bool clip, Action<CaptureInfo> onComplete, CaptureInfo info = null)
         {
             if (!IsPlaying)
             {
@@ -433,7 +434,8 @@ namespace EasyWebCam
         /// <param name="info">CaptureInfo to reuse the texture object.</param>
         public void CaptureAsync(Action<CaptureInfo> onComplete, CaptureInfo info = null)
         {
-            CaptureAsync(_viewport.WebCamProperties.videoRotationAngle, FlipHorizontally, true, onComplete, info);
+            TextureOrientation orientation = GetTextureOrientation();
+            CaptureAsync(orientation.rotationAngle, orientation.flipHorizontally, true, onComplete, info);
         }
 
         /// <summary>
@@ -444,7 +446,7 @@ namespace EasyWebCam
         {
             if (!IsPlaying)
                 return false;
-            
+
             return mCaptureWorker.IsBusy;
         }
 
@@ -495,6 +497,14 @@ namespace EasyWebCam
 #else
             return true;
 #endif
+        }
+
+        private TextureOrientation GetTextureOrientation()
+        {
+            return Utils.GetTextureOrientation(
+                flipVertically: _viewport.WebCamProperties.videoVerticallyMirrored,
+                rotationAngle: _viewport.WebCamProperties.videoRotationAngle,
+                flipHorizontally: FlipHorizontally);
         }
     }
 }

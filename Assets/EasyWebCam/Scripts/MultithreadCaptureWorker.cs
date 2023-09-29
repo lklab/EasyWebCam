@@ -26,7 +26,7 @@ namespace EasyWebCam
             mThreadCount = threadCount;
         }
 
-        public CaptureInfo Capture(float rotationAngle, bool flipHorizontally, bool clip, float viewportAspect, CaptureInfo info)
+        public CaptureInfo Capture(int rotationAngle, bool flipHorizontally, bool clip, float viewportAspect, CaptureInfo info)
         {
             if (mIsBusy)
                 return CaptureInfo.Busy;
@@ -39,7 +39,7 @@ namespace EasyWebCam
             return GetCaptureInfoFromResult(context, info);
         }
 
-        public IEnumerator CaptureAsync(float rotationAngle, bool flipHorizontally, bool clip, float viewportAspect, CaptureInfo info, Action<CaptureInfo> onCompleted)
+        public IEnumerator CaptureAsync(int rotationAngle, bool flipHorizontally, bool clip, float viewportAspect, CaptureInfo info, Action<CaptureInfo> onCompleted)
         {
             if (mIsBusy)
             {
@@ -107,8 +107,12 @@ namespace EasyWebCam
         }
 
         private ThreadContext RunInternal(WebCamTexture inputTexture, int threadCount,
-            float rotationAngle, bool flipHorizontally, bool clip, float viewportAspect)
+            int rotationAngle, bool flipHorizontally, bool clip, float viewportAspect)
         {
+            TextureOrientation orientation = Utils.GetTextureOrientation(mInputTexture.videoVerticallyMirrored, rotationAngle, flipHorizontally);
+            rotationAngle = orientation.rotationAngle;
+            flipHorizontally = orientation.flipHorizontally;
+
             int rotationStep = Utils.GetRotationStep(rotationAngle);
 
             Vector2Int clippingOffset;
