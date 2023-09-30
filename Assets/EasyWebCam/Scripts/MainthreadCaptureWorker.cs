@@ -4,14 +4,14 @@ using UnityEngine;
 
 namespace EasyWebCam
 {
-    public class SinglethreadCaptureWorker : ICaptureWorker
+    public class MainthreadCaptureWorker : ICaptureWorker
     {
         private WebCamTexture mInputTexture;
         private bool mIsBusy = false;
 
         public bool IsBusy { get { return mIsBusy; } }
 
-        public SinglethreadCaptureWorker(WebCamTexture texture)
+        public MainthreadCaptureWorker(WebCamTexture texture)
         {
             mInputTexture = texture;
         }

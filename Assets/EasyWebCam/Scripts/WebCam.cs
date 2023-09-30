@@ -14,7 +14,12 @@ namespace EasyWebCam
     {
         public enum Error { Success, Disabled, NotSupported, Permission, Busy }
 
-        public enum CaptureMode { Multithread, ComputeShader }
+        public enum CaptureMode
+        {
+            Mainthread,
+            Multithread,
+            ComputeShader,
+        }
 
         [Header("UI")]
         [SerializeField] private Viewport _viewport;
@@ -71,6 +76,8 @@ namespace EasyWebCam
         public WebCamTexture Texture { get; private set; } = null;
 
         public Viewport Viewport { get { return _viewport; } }
+
+        public CaptureMode CurrentCaptureMode { get { return _captureMode; } }
 
         private Coroutine mAcquireWebCamPermissionCoroutine = null;
 
@@ -317,33 +324,7 @@ namespace EasyWebCam
                 _viewport.RectTr.localScale = Vector3.one;
 
             // Set up the capture worker
-            if (Application.platform == RuntimePlatform.WebGLPlayer)
-            {
-                mCaptureWorker = new SinglethreadCaptureWorker(Texture);
-            }
-            else
-            {
-                try
-                {
-                    switch (_captureMode)
-                    {
-                        case CaptureMode.Multithread:
-                            mCaptureWorker = new MultithreadCaptureWorker(Texture, _captureThreadCount);
-                            break;
-
-                        case CaptureMode.ComputeShader:
-                            if (ComputeShaderCaptureWorker.IsSupported(_captureComputeShader))
-                                mCaptureWorker = new ComputeShaderCaptureWorker(Texture, _captureComputeShader);
-                            else
-                                mCaptureWorker = new MultithreadCaptureWorker(Texture, _captureThreadCount);
-                            break;
-                    }
-                }
-                catch
-                {
-                    mCaptureWorker = new SinglethreadCaptureWorker(Texture);
-                }
-            }
+            SetCaptureMode(_captureMode);
 
             // Store variables
             _webCamResolution = resolution;
@@ -379,6 +360,44 @@ namespace EasyWebCam
                 return;
 
             _viewport.Resize();
+        }
+
+        public void SetCaptureMode(CaptureMode mode)
+        {
+            if (Texture == null)
+            {
+                _captureMode = mode;
+                return;
+            }
+
+            if (Application.platform == RuntimePlatform.WebGLPlayer)
+                SetCaptureWorker(CaptureMode.Mainthread);
+            else
+            {
+                try
+                {
+                    switch (mode)
+                    {
+                        case CaptureMode.ComputeShader:
+                            if (ComputeShaderCaptureWorker.IsSupported(_captureComputeShader))
+                                SetCaptureWorker(CaptureMode.ComputeShader);
+                            else
+                                SetCaptureWorker(CaptureMode.Multithread);
+                            break;
+
+                        default:
+                            SetCaptureWorker(mode);
+                            break;
+                    }
+                }
+                catch
+                {
+                    SetCaptureWorker(CaptureMode.Mainthread);
+                }
+            }
+
+            if (_captureMode != mode)
+                Debug.LogWarning($"The capture mode fallbacked by {_captureMode}.");
         }
 
         /// <summary>
@@ -497,6 +516,33 @@ namespace EasyWebCam
 #else
             return true;
 #endif
+        }
+
+        private void SetCaptureWorker(CaptureMode mode)
+        {
+            _captureMode = mode;
+
+            if (Texture != null)
+            {
+                switch (mode)
+                {
+                    case CaptureMode.Mainthread:
+                        mCaptureWorker = new MainthreadCaptureWorker(Texture);
+                        break;
+
+                    case CaptureMode.Multithread:
+                        mCaptureWorker = new MultithreadCaptureWorker(Texture, _captureThreadCount);
+                        break;
+
+                    case CaptureMode.ComputeShader:
+                        mCaptureWorker = new ComputeShaderCaptureWorker(Texture, _captureComputeShader);
+                        break;
+
+                    default:
+                        mCaptureWorker = null;
+                        break;
+                }
+            }
         }
 
         private TextureOrientation GetTextureOrientation()
