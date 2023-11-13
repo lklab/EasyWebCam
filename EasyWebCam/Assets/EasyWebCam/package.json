@@ -1,7 +1,11 @@
 ﻿{
     "name": "com.lklab.easywebcam",
     "displayName": "EasyWebCam",
-    "author": { "name": "lklab", "url": "https://lklab.github.io/blog/" },
+    "author":
+    {
+        "name": "lklab",
+        "url": "https://github.com/lklab/EasyWebCam"
+    },
     "version": "1.0.0",
     "unity": "2018.4",
     "description": "Easy Webcam is a Unity WebCamTexture wrapper written 100% in C#.",
