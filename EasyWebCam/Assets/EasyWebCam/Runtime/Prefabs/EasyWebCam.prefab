@@ -51,6 +51,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   _viewport: {fileID: 8041530539001900297}
+  _startOnAwake: 1
   _webCamResolution: {x: 1920, y: 1080}
   _webCamFPS: 60
   _useFrontFacing: 1

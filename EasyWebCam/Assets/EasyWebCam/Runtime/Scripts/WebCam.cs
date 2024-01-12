@@ -25,6 +25,7 @@ namespace EasyWebCam
         [SerializeField] private Viewport _viewport;
 
         [Header("WebCam settings")]
+        [SerializeField] private bool _startOnAwake = true;
         [SerializeField] private Vector2Int _webCamResolution = new Vector2Int(1920, 1080);
         [SerializeField] private int _webCamFPS = 60;
         [SerializeField] private bool _useFrontFacing = true;
@@ -86,6 +87,18 @@ namespace EasyWebCam
         private void Awake()
         {
             Initialize();
+
+            if (_startOnAwake)
+            {
+                RequestPermission((Error error) =>
+                {
+                    if (error == Error.Success)
+                        error = StartWebCam();
+
+                    if (error == Error.NotSupported)
+                        StartWebCam(0);
+                });
+            }
         }
 
         private void OnDestroy()
@@ -236,6 +249,24 @@ namespace EasyWebCam
                 return Error.NotSupported;
 
             return StartWebCam(device, resolution, fps, flipHorizontally);
+        }
+
+        /// <summary>
+        /// Start the WebCam with a specified device index.
+        /// </summary>
+        /// <param name="deviceIndex">Index of the WebCamTexture.devices array.</param>
+        /// <returns>Error.Success if the WebCam started successfully,
+        /// Error.Busy if the WebCam has already started,
+        /// Error.NotSupported if no WebCam is available.</returns>
+        public Error StartWebCam(int deviceIndex)
+        {
+            if (!IsPermitted)
+                return Error.Permission;
+
+            if (IsPlaying)
+                return Error.Busy;
+
+            return StartWebCam(deviceIndex, _webCamResolution, _webCamFPS);
         }
 
         /// <summary>
