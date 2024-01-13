@@ -21,7 +21,6 @@ public class EasyWebCamSample : MonoBehaviour
     [SerializeField] private Text _permissionText;
 
     private CaptureInfo mCaptureInfo = null;
-    private Vector2 mViewportSize = Vector2.zero;
 
     private void Awake()
     {
@@ -54,11 +53,10 @@ public class EasyWebCamSample : MonoBehaviour
 
         _changeButton.onClick.AddListener(delegate
         {
-            _webCam.StopWebCam();
-            WebCam.Error error = _webCam.StartWebCam(!_webCam.IsFrontFacing);
+            WebCam.Result result = _webCam.StartWebCam(!_webCam.IsFrontFacing);
 
-            if (error == WebCam.Error.NotSupported)
-                StartAnyWebCam();
+            if (result == WebCam.Result.NotSupported)
+                _webCam.StartWebCam(0);
 
             DestroyCapturedTexture();
         });
@@ -75,15 +73,15 @@ public class EasyWebCamSample : MonoBehaviour
 
         yield return null;
 
-        _webCam.RequestPermission((WebCam.Error error) =>
+        _webCam.RequestPermission((WebCam.Result result) =>
         {
-            _permissionText.text = $"Permission response: {error}";
+            _permissionText.text = $"Permission response: {result}";
 
-            if (error == WebCam.Error.Success)
-                error = _webCam.StartWebCam();
+            if (result == WebCam.Result.Success)
+                result = _webCam.StartWebCam();
 
-            if (error == WebCam.Error.NotSupported)
-                StartAnyWebCam();
+            if (result == WebCam.Result.NotSupported)
+                _webCam.StartWebCam(0);
         });
     }
 
@@ -100,13 +98,5 @@ public class EasyWebCamSample : MonoBehaviour
             mCaptureInfo.Destroy();
             mCaptureInfo = null;
         }
-    }
-
-    private void StartAnyWebCam()
-    {
-        _webCam.StartWebCam(
-            deviceIndex: 0,
-            resolution: _webCam.Resolution,
-            fps: _webCam.FPS);
     }
 }

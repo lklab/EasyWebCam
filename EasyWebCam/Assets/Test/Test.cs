@@ -73,10 +73,7 @@ public class Test : MonoBehaviour
 
         _changeButton.onClick.AddListener(delegate
         {
-            _webCam.StopWebCam();
-            _webCam.StartWebCam(!_webCam.IsFrontFacing,
-                _webCam.Resolution,
-                _webCam.FPS);
+            _webCam.StartWebCam(!_webCam.IsFrontFacing);
             _webCamTexture.texture = _webCam.Texture;
 
             DestroyCapturedTextures();
@@ -112,9 +109,9 @@ public class Test : MonoBehaviour
     private void Start()
     {
         _webCam.Initialize();
-        _webCam.RequestPermission((WebCam.Error error) =>
+        _webCam.RequestPermission((WebCam.Result result) =>
         {
-            if (error == WebCam.Error.Success)
+            if (result == WebCam.Result.Success)
                 _webCam.StartWebCam();
             _webCamTexture.texture = _webCam.Texture;
         });
