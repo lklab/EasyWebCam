@@ -54,9 +54,9 @@ public class EasyWebCamSample : MonoBehaviour
 
         _changeButton.onClick.AddListener(delegate
         {
-            WebCam.Error error = _webCam.StartWebCam(!_webCam.IsFrontFacing);
+            WebCam.Result result = _webCam.StartWebCam(!_webCam.IsFrontFacing);
 
-            if (error == WebCam.Error.NotSupported)
+            if (result == WebCam.Result.NotSupported)
                 StartAnyWebCam();
 
             DestroyCapturedTexture();
@@ -74,14 +74,14 @@ public class EasyWebCamSample : MonoBehaviour
 
         yield return null;
 
-        _webCam.RequestPermission((WebCam.Error error) =>
+        _webCam.RequestPermission((WebCam.Result result) =>
         {
-            _permissionText.text = $"Permission response: {error}";
+            _permissionText.text = $"Permission response: {result}";
 
-            if (error == WebCam.Error.Success)
-                error = _webCam.StartWebCam();
+            if (result == WebCam.Result.Success)
+                result = _webCam.StartWebCam();
 
-            if (error == WebCam.Error.NotSupported)
+            if (result == WebCam.Result.NotSupported)
                 StartAnyWebCam();
         });
     }

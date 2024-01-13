@@ -12,7 +12,7 @@ namespace EasyWebCam
 {
     public class WebCam : MonoBehaviour
     {
-        public enum Error { Success, Disabled, NotSupported, Permission }
+        public enum Result { Success, Disabled, NotSupported, Permission }
 
         public enum CaptureMode
         {
@@ -90,12 +90,12 @@ namespace EasyWebCam
 
             if (_startOnAwake)
             {
-                RequestPermission((Error error) =>
+                RequestPermission((Result result) =>
                 {
-                    if (error == Error.Success)
-                        error = StartWebCam();
+                    if (result == Result.Success)
+                        result = StartWebCam();
 
-                    if (error == Error.NotSupported)
+                    if (result == Result.NotSupported)
                         StartWebCam(0);
                 });
             }
@@ -122,23 +122,23 @@ namespace EasyWebCam
             _viewport.ClearWebCamTexture();
         }
 
-        private event Action<Error> requestPermissionCallbacks;
+        private event Action<Result> requestPermissionCallbacks;
 
         /// <summary>
         /// Request permission to use the WebCam.
         /// </summary>
         /// <param name="callback">Callback to receive the permission result.</param>
-        public void RequestPermission(Action<Error> callback)
+        public void RequestPermission(Action<Result> callback)
         {
             if (IsPermitted)
             {
-                callback?.Invoke(Error.Success);
+                callback?.Invoke(Result.Success);
                 return;
             }
 
             if (!isActiveAndEnabled)
             {
-                callback?.Invoke(Error.Disabled);
+                callback?.Invoke(Result.Disabled);
                 return;
             }
 
@@ -153,22 +153,22 @@ namespace EasyWebCam
                 requestPermissionCallbacks += callback;
             }
 
-            mAcquireWebCamPermissionCoroutine = StartCoroutine(AcquireWebCamPermission(error =>
+            mAcquireWebCamPermissionCoroutine = StartCoroutine(AcquireWebCamPermission(result =>
             {
                 mAcquireWebCamPermissionCoroutine = null;
 
-                IsPermitted = error == Error.Success;
-                requestPermissionCallbacks?.Invoke(error);
+                IsPermitted = result == Result.Success;
+                requestPermissionCallbacks?.Invoke(result);
             }));
         }
 
         /// <summary>
         /// Start the WebCam with default settings.
         /// </summary>
-        /// <returns>Error.Success if the WebCam started successfully,
-        /// Error.Permission if WebCam permission is not obtained,
-        /// Error.NotSupported if no WebCam is available.</returns>
-        public Error StartWebCam()
+        /// <returns>Result.Success if the WebCam started successfully,
+        /// Result.Permission if WebCam permission is not obtained,
+        /// Result.NotSupported if no WebCam is available.</returns>
+        public Result StartWebCam()
         {
             return StartWebCam(_useFrontFacing, _webCamResolution, _webCamFPS);
         }
@@ -177,10 +177,10 @@ namespace EasyWebCam
         /// Start the WebCam with custom settings.
         /// </summary>
         /// <param name="useFrontFacing">Whether to use the front-facing WebCam.</param>
-        /// <returns>Error.Success if the WebCam started successfully,
-        /// Error.Permission if WebCam permission is not obtained,
-        /// Error.NotSupported if no WebCam is available.</returns>
-        public Error StartWebCam(bool useFrontFacing)
+        /// <returns>Result.Success if the WebCam started successfully,
+        /// Result.Permission if WebCam permission is not obtained,
+        /// Result.NotSupported if no WebCam is available.</returns>
+        public Result StartWebCam(bool useFrontFacing)
         {
             return StartWebCam(useFrontFacing, _webCamResolution, _webCamFPS);
         }
@@ -191,10 +191,10 @@ namespace EasyWebCam
         /// <param name="useFrontFacing">Whether to use the front-facing WebCam.</param>
         /// <param name="resolution">WebCam resolution.</param>
         /// <param name="fps">WebCam FPS.</param>
-        /// <returns>Error.Success if the WebCam started successfully,
-        /// Error.Permission if WebCam permission is not obtained,
-        /// Error.NotSupported if no WebCam is available.</returns>
-        public Error StartWebCam(bool useFrontFacing, Vector2Int resolution, int fps)
+        /// <returns>Result.Success if the WebCam started successfully,
+        /// Result.Permission if WebCam permission is not obtained,
+        /// Result.NotSupported if no WebCam is available.</returns>
+        public Result StartWebCam(bool useFrontFacing, Vector2Int resolution, int fps)
         {
             return StartWebCam(useFrontFacing, resolution, fps, useFrontFacing);
         }
@@ -206,17 +206,17 @@ namespace EasyWebCam
         /// <param name="resolution">WebCam resolution.</param>
         /// <param name="fps">WebCam FPS.</param>
         /// <param name="flipHorizontally">Whether to horizontally flip the WebCam.</param>
-        /// <returns>Error.Success if the WebCam started successfully,
-        /// Error.Permission if WebCam permission is not obtained,
-        /// Error.NotSupported if no WebCam is available.</returns>
-        public Error StartWebCam(bool useFrontFacing, Vector2Int resolution, int fps, bool flipHorizontally)
+        /// <returns>Result.Success if the WebCam started successfully,
+        /// Result.Permission if WebCam permission is not obtained,
+        /// Result.NotSupported if no WebCam is available.</returns>
+        public Result StartWebCam(bool useFrontFacing, Vector2Int resolution, int fps, bool flipHorizontally)
         {
             if (!IsPermitted)
-                return Error.Permission;
+                return Result.Permission;
 
             WebCamDevice[] devices = WebCamTexture.devices;
             if (devices == null)
-                return Error.NotSupported;
+                return Result.NotSupported;
 
             WebCamDevice device = default;
             bool found = false;
@@ -232,7 +232,7 @@ namespace EasyWebCam
             }
 
             if (!found)
-                return Error.NotSupported;
+                return Result.NotSupported;
 
             return StartWebCam(device, resolution, fps, flipHorizontally);
         }
@@ -241,10 +241,10 @@ namespace EasyWebCam
         /// Start the WebCam with a specified device index.
         /// </summary>
         /// <param name="deviceIndex">Index of the WebCamTexture.devices array.</param>
-        /// <returns>Error.Success if the WebCam started successfully,
-        /// Error.Permission if WebCam permission is not obtained,
-        /// Error.NotSupported if no WebCam is available.</returns>
-        public Error StartWebCam(int deviceIndex)
+        /// <returns>Result.Success if the WebCam started successfully,
+        /// Result.Permission if WebCam permission is not obtained,
+        /// Result.NotSupported if no WebCam is available.</returns>
+        public Result StartWebCam(int deviceIndex)
         {
             return StartWebCam(deviceIndex, _webCamResolution, _webCamFPS);
         }
@@ -255,18 +255,18 @@ namespace EasyWebCam
         /// <param name="deviceIndex">Index of the WebCamTexture.devices array.</param>
         /// <param name="resolution">WebCam resolution.</param>
         /// <param name="fps">WebCam FPS.</param>
-        /// <returns>Error.Success if the WebCam started successfully,
-        /// Error.Permission if WebCam permission is not obtained,
-        /// Error.NotSupported if no WebCam is available.</returns>
-        public Error StartWebCam(int deviceIndex, Vector2Int resolution, int fps)
+        /// <returns>Result.Success if the WebCam started successfully,
+        /// Result.Permission if WebCam permission is not obtained,
+        /// Result.NotSupported if no WebCam is available.</returns>
+        public Result StartWebCam(int deviceIndex, Vector2Int resolution, int fps)
         {
             if (!IsPermitted)
-                return Error.Permission;
+                return Result.Permission;
 
             WebCamDevice[] devices = WebCamTexture.devices;
 
             if (devices == null || deviceIndex < 0 || deviceIndex >= devices.Length)
-                return Error.NotSupported;
+                return Result.NotSupported;
 
             return StartWebCam(devices[deviceIndex], resolution, fps, devices[deviceIndex].isFrontFacing);
         }
@@ -278,18 +278,18 @@ namespace EasyWebCam
         /// <param name="resolution">WebCam resolution.</param>
         /// <param name="fps">WebCam FPS.</param>
         /// <param name="flipHorizontally">Whether to horizontally flip the WebCam.</param>
-        /// <returns>Error.Success if the WebCam started successfully,
-        /// Error.Permission if WebCam permission is not obtained,
-        /// Error.NotSupported if no WebCam is available.</returns>
-        public Error StartWebCam(int deviceIndex, Vector2Int resolution, int fps, bool flipHorizontally)
+        /// <returns>Result.Success if the WebCam started successfully,
+        /// Result.Permission if WebCam permission is not obtained,
+        /// Result.NotSupported if no WebCam is available.</returns>
+        public Result StartWebCam(int deviceIndex, Vector2Int resolution, int fps, bool flipHorizontally)
         {
             if (!IsPermitted)
-                return Error.Permission;
+                return Result.Permission;
 
             WebCamDevice[] devices = WebCamTexture.devices;
 
             if (devices == null || deviceIndex < 0 || deviceIndex >= devices.Length)
-                return Error.NotSupported;
+                return Result.NotSupported;
 
             return StartWebCam(devices[deviceIndex], resolution, fps, flipHorizontally);
         }
@@ -301,18 +301,18 @@ namespace EasyWebCam
         /// <param name="resolution">WebCam resolution.</param>
         /// <param name="fps">WebCam FPS.</param>
         /// <param name="flipHorizontally">Whether to horizontally flip the WebCam.</param>
-        /// <returns>Error.Success if the WebCam started successfully,
-        /// Error.Permission if WebCam permission is not obtained,
-        /// Error.NotSupported if no WebCam is available.</returns>
-        public Error StartWebCam(WebCamDevice device, Vector2Int resolution, int fps, bool flipHorizontally)
+        /// <returns>Result.Success if the WebCam started successfully,
+        /// Result.Permission if WebCam permission is not obtained,
+        /// Result.NotSupported if no WebCam is available.</returns>
+        public Result StartWebCam(WebCamDevice device, Vector2Int resolution, int fps, bool flipHorizontally)
         {
             if (!IsPermitted)
-                return Error.Permission;
+                return Result.Permission;
 
             if (IsPlaying && Texture != null)
             {
                 if (Texture.deviceName.Equals(device.name))
-                    return Error.Success;
+                    return Result.Success;
                 else
                     StopWebCam();
             }
@@ -343,7 +343,7 @@ namespace EasyWebCam
             FlipHorizontally = flipHorizontally;
             IsPlaying = true;
 
-            return Error.Success;
+            return Result.Success;
         }
 
         /// <summary>
@@ -479,38 +479,38 @@ namespace EasyWebCam
             return mCaptureWorker.IsBusy;
         }
 
-        private IEnumerator AcquireWebCamPermission(Action<Error> callback)
+        private IEnumerator AcquireWebCamPermission(Action<Result> callback)
         {
 #if !UNITY_EDITOR
 #if UNITY_ANDROID
             if (Permission.HasUserAuthorizedPermission(Permission.Camera))
             {
-                callback?.Invoke(Error.Success);
+                callback?.Invoke(Result.Success);
                 yield break;
             }
             
             PermissionCallbacks permissionCallbacks = new PermissionCallbacks();
-            permissionCallbacks.PermissionDenied += (string msg) => callback?.Invoke(Error.Permission);
-            permissionCallbacks.PermissionDeniedAndDontAskAgain += (string msg) => callback?.Invoke(Error.Permission);
-            permissionCallbacks.PermissionGranted += (string msg) => callback?.Invoke(Error.Success);
+            permissionCallbacks.PermissionDenied += (string msg) => callback?.Invoke(Result.Permission);
+            permissionCallbacks.PermissionDeniedAndDontAskAgain += (string msg) => callback?.Invoke(Result.Permission);
+            permissionCallbacks.PermissionGranted += (string msg) => callback?.Invoke(Result.Success);
 
             Permission.RequestUserPermission(Permission.Camera, permissionCallbacks);
 #else
 		    if (Application.HasUserAuthorization(UserAuthorization.WebCam))
 		    {
-			    callback?.Invoke(Error.Success);
+			    callback?.Invoke(Result.Success);
 			    yield break;
 		    }
 
 		    yield return Application.RequestUserAuthorization(UserAuthorization.WebCam);
 
 		    if (Application.HasUserAuthorization(UserAuthorization.WebCam))
-			    callback?.Invoke(Error.Success);
+			    callback?.Invoke(Result.Success);
 		    else
-			    callback?.Invoke(Error.Permission);
+			    callback?.Invoke(Result.Permission);
 #endif
 #else
-            callback?.Invoke(Error.Success);
+            callback?.Invoke(Result.Success);
             yield break;
 #endif
         }
