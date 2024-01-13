@@ -54,7 +54,6 @@ public class EasyWebCamSample : MonoBehaviour
 
         _changeButton.onClick.AddListener(delegate
         {
-            _webCam.StopWebCam();
             WebCam.Error error = _webCam.StartWebCam(!_webCam.IsFrontFacing);
 
             if (error == WebCam.Error.NotSupported)
