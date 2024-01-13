@@ -21,7 +21,6 @@ public class EasyWebCamSample : MonoBehaviour
     [SerializeField] private Text _permissionText;
 
     private CaptureInfo mCaptureInfo = null;
-    private Vector2 mViewportSize = Vector2.zero;
 
     private void Awake()
     {
@@ -57,7 +56,7 @@ public class EasyWebCamSample : MonoBehaviour
             WebCam.Result result = _webCam.StartWebCam(!_webCam.IsFrontFacing);
 
             if (result == WebCam.Result.NotSupported)
-                StartAnyWebCam();
+                _webCam.StartWebCam(0);
 
             DestroyCapturedTexture();
         });
@@ -82,7 +81,7 @@ public class EasyWebCamSample : MonoBehaviour
                 result = _webCam.StartWebCam();
 
             if (result == WebCam.Result.NotSupported)
-                StartAnyWebCam();
+                _webCam.StartWebCam(0);
         });
     }
 
@@ -99,13 +98,5 @@ public class EasyWebCamSample : MonoBehaviour
             mCaptureInfo.Destroy();
             mCaptureInfo = null;
         }
-    }
-
-    private void StartAnyWebCam()
-    {
-        _webCam.StartWebCam(
-            deviceIndex: 0,
-            resolution: _webCam.Resolution,
-            fps: _webCam.FPS);
     }
 }

@@ -73,9 +73,7 @@ public class Test : MonoBehaviour
 
         _changeButton.onClick.AddListener(delegate
         {
-            _webCam.StartWebCam(!_webCam.IsFrontFacing,
-                _webCam.Resolution,
-                _webCam.FPS);
+            _webCam.StartWebCam(!_webCam.IsFrontFacing);
             _webCamTexture.texture = _webCam.Texture;
 
             DestroyCapturedTextures();
